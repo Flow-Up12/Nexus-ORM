@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { X, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
+import { Modal, Button, Input, FormField } from '@/ui'
 import type { ParsedModel, SchemaData } from '@/types/schema'
 import { fetchRecords } from '@/api/records'
 
@@ -135,26 +136,23 @@ export function EditRecordModal({ model, schema, record, onSave, onCancel, inlin
     }
   }
 
+  const formTitle = isCreating ? `Create ${model.name}` : `Edit ${model.name}`
+
   const formContent = (
     <form
-          className="p-6"
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleSubmit()
-          }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {isCreating ? `Create ${model.name}` : `Edit ${model.name}`}
-            </h3>
-            {!inline && (
-              <button type="button" onClick={onCancel} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+      className={inline ? 'p-6' : ''}
+      onSubmit={(e) => {
+        e.preventDefault()
+        handleSubmit()
+      }}
+    >
+      {inline && (
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{formTitle}</h3>
+        </div>
+      )}
 
-          <div className="space-y-4 mb-6">
+      <div className={inline ? 'space-y-4 mb-6' : 'space-y-4 mb-6'}>
             {editableFields.map((field) => {
               const inputType = getInputType(field, schema)
               const isRequired = !field.type.includes('?')
@@ -229,20 +227,22 @@ export function EditRecordModal({ model, schema, record, onSave, onCancel, inlin
           </div>
 
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onCancel}
-              className="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+              className="flex-1"
             >
               {inline ? 'View' : 'Cancel'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className="flex-1"
             >
               {loading ? 'Saving...' : isCreating ? 'Create' : 'Save'}
-            </button>
+            </Button>
           </div>
         </form>
   )
@@ -256,16 +256,9 @@ export function EditRecordModal({ model, schema, record, onSave, onCancel, inlin
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      role="dialog"
-      aria-modal
-      onClick={(e) => e.target === e.currentTarget && onCancel()}
-    >
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        {formContent}
-      </div>
-    </div>
+    <Modal open onClose={onCancel} title={formTitle} maxWidth="lg">
+      {formContent}
+    </Modal>
   )
 }
 
@@ -492,67 +485,54 @@ function CreateRelatedModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4"
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+    <Modal
+      open
+      onClose={onCancel}
+      title={`Create New ${model.name}`}
+      footer={
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={onCancel} className="flex-1">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="create-related-form"
+            variant="primary"
+            className="flex-1"
+          >
+            Create & Select
+          </Button>
+        </div>
+      }
     >
-      <div
-        className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6"
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
+      <form
+        id="create-related-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          handleSubmit()
+        }}
       >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            handleSubmit()
-          }}
-        >
-          <h4 className="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Create New {model.name}</h4>
-          <div className="space-y-3 mb-6">
-            {scalarFields.map((f) => {
-              const isRequired = !f.type.includes('?')
-              const hasError = validationErrors[f.name]
-              return (
-                <div key={f.name}>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    {f.name} {isRequired && '*'}
-                  </label>
-                  <input
-                    type={f.type.includes('Int') || f.type.includes('Float') || f.type.includes('Decimal') ? 'number' : 'text'}
-                    value={String(data[f.name] ?? '')}
-                    onChange={(e) => handleChange(f.name, e.target.type === 'number' ? Number(e.target.value) || null : e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
-                      hasError ? 'border-red-500 dark:border-red-400' : 'border-slate-200 dark:border-slate-600'
-                    }`}
-                  />
-                  {hasError && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{hasError}</p>}
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onCancel()
-              }}
-              className="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-            >
-              Create & Select
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="space-y-3">
+          {scalarFields.map((f) => {
+            const isRequired = !f.type.includes('?')
+            const hasError = validationErrors[f.name]
+            const inputType = f.type.includes('Int') || f.type.includes('Float') || f.type.includes('Decimal') ? 'number' : 'text'
+            return (
+              <Input
+                key={f.name}
+                label={f.name}
+                required={isRequired}
+                type={inputType}
+                value={String(data[f.name] ?? '')}
+                onChange={(e) =>
+                  handleChange(f.name, e.target.type === 'number' ? Number(e.target.value) || null : e.target.value)
+                }
+                error={hasError}
+              />
+            )
+          })}
+        </div>
+      </form>
+    </Modal>
   )
 }

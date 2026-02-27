@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Play, FileJson, FileSpreadsheet, HelpCircle, X, Save, Plus, Trash2, FileDown, FileUp } from 'lucide-react'
+import { Play, FileJson, FileSpreadsheet, HelpCircle, Save, Plus, Trash2, FileDown, FileUp } from 'lucide-react'
+import { Modal, Button, Input, Table } from '@/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { runSqlQuery, saveSqlScriptToServer, listSqlScripts, loadSqlScriptFromServer } from '@/api/query'
 import { exportToCsv, exportToJson } from '@/utils/export'
@@ -293,14 +294,13 @@ export function SqlPlayground() {
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             SQL Playground
           </h2>
-          <button
-            type="button"
+          <Button
+            variant="icon"
             onClick={() => setShowHelpModal(true)}
-            className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
             title="SQL help & common functions"
           >
             <HelpCircle className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Run raw SQL queries against your database
@@ -357,33 +357,33 @@ export function SqlPlayground() {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleNewQuery}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
               title="New query"
             >
               <Plus className="w-4 h-4" />
               New
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => openSaveModal(false)}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
               title={currentQueryId ? 'Update saved query' : 'Save query (browser)'}
             >
               <Save className="w-4 h-4" />
               {currentQueryId ? 'Update' : 'Save'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => openSaveModal(true)}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
               title="Save as .sql file on server"
             >
               <FileDown className="w-4 h-4" />
               Save as .sql
-            </button>
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -391,24 +391,25 @@ export function SqlPlayground() {
               onChange={handleLoadFromFile}
               className="hidden"
             />
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
               title="Load from .sql file"
             >
               <FileUp className="w-4 h-4" />
               Load file
-            </button>
+            </Button>
             {currentQueryId && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={(e) => handleDeleteQuery(currentQueryId, e)}
-                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                 title="Delete saved query"
               >
                 <Trash2 className="w-4 h-4" />
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -420,18 +421,18 @@ export function SqlPlayground() {
           spellCheck={false}
         />
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowHelpModal(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
           >
             <HelpCircle className="w-4 h-4" />
             SQL Help
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleRun}
             disabled={runMutation.isPending}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {runMutation.isPending ? (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -439,7 +440,7 @@ export function SqlPlayground() {
               <Play className="w-4 h-4" />
             )}
             Run Query
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -450,20 +451,22 @@ export function SqlPlayground() {
               Results ({results.length} row{results.length !== 1 ? 's' : ''})
             </span>
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => openExportModal('csv')}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 Export CSV
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => openExportModal('json')}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 <FileJson className="w-4 h-4" />
                 Export JSON
-              </button>
+              </Button>
             </div>
           </div>
           <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
@@ -474,32 +477,23 @@ export function SqlPlayground() {
             ) : (
               <table className="w-full">
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-700/50">
-                  <tr className="border-b border-slate-200 dark:border-slate-600">
+                  <Table.HeadRow>
                     {columns.map((col) => (
-                      <th
-                        key={col}
-                        className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap"
-                      >
+                      <Table.HeadCell key={col} className="whitespace-nowrap">
                         {col}
-                      </th>
+                      </Table.HeadCell>
                     ))}
-                  </tr>
+                  </Table.HeadRow>
                 </thead>
                 <tbody>
                   {results.map((row, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-slate-100 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30"
-                    >
+                    <Table.BodyRow key={i}>
                       {columns.map((col) => (
-                        <td
-                          key={col}
-                          className="px-6 py-3 text-sm text-slate-900 dark:text-slate-100"
-                        >
+                        <Table.BodyCell key={col}>
                           {formatCellValue(row[col])}
-                        </td>
+                        </Table.BodyCell>
                       ))}
-                    </tr>
+                    </Table.BodyRow>
                   ))}
                 </tbody>
               </table>
@@ -509,24 +503,13 @@ export function SqlPlayground() {
       )}
 
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowHelpModal(false)}>
-          <div
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-600">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                SQL Reference — Common Functions & Query Patterns
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <Modal
+          open
+          onClose={() => setShowHelpModal(false)}
+          title="SQL Reference — Common Functions & Query Patterns"
+          maxWidth="2xl"
+        >
+          <div className="space-y-6">
               <div>
                 <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Available tables</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">PostgreSQL: use lowercase. Quote mixed-case columns (e.g. "customerId")</p>
@@ -585,125 +568,69 @@ export function SqlPlayground() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showSaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowSaveModal(false)}>
-          <div
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-600">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {saveToServer ? 'Save as .sql on server' : currentQueryId ? 'Update query' : 'Save query'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowSaveModal(false)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Modal
+          open
+          onClose={() => setShowSaveModal(false)}
+          title={saveToServer ? 'Save as .sql on server' : currentQueryId ? 'Update query' : 'Save query'}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowSaveModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleSave} disabled={savingToServer}>
+                {savingToServer ? 'Saving...' : saveToServer ? 'Save to server' : (currentQueryId ? 'Update' : 'Save')}
+              </Button>
             </div>
-            <div className="p-6 space-y-4">
-              {saveToServer && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Saves to <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">sql-scripts/</code> folder on the server
-                </p>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {saveToServer ? 'Script name' : 'Query name'}
-                </label>
-                <input
-                  type="text"
-                  value={saveName}
-                  onChange={(e) => setSaveName(e.target.value)}
-                  placeholder="e.g. Top customers by spend"
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSaveModal(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={savingToServer}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {savingToServer ? 'Saving...' : saveToServer ? 'Save to server' : (currentQueryId ? 'Update' : 'Save')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          }
+        >
+          {saveToServer && (
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Saves to <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">sql-scripts/</code> folder on the server
+            </p>
+          )}
+          <Input
+            label={saveToServer ? 'Script name' : 'Query name'}
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            placeholder="e.g. Top customers by spend"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          />
+        </Modal>
       )}
 
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowExportModal(false)}>
-          <div
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-600">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Export as {exportFormat.toUpperCase()}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowExportModal(false)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Modal
+          open
+          onClose={() => setShowExportModal(false)}
+          title={`Export as ${exportFormat.toUpperCase()}`}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowExportModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleExportConfirm}>
+                Export
+              </Button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Filename
-                </label>
-                <input
-                  type="text"
-                  value={exportFilename}
-                  onChange={(e) => setExportFilename(e.target.value)}
-                  placeholder="export"
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleExportConfirm()}
-                />
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  .{exportFormat} will be added automatically
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowExportModal(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportConfirm}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  Export
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          }
+        >
+          <Input
+            label="Filename"
+            value={exportFilename}
+            onChange={(e) => setExportFilename(e.target.value)}
+            placeholder="export"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && handleExportConfirm()}
+          />
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            .{exportFormat} will be added automatically
+          </p>
+        </Modal>
       )}
     </div>
   )

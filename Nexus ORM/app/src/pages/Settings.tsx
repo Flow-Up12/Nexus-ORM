@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { fetchSettings, saveSettings } from '@/api/settings'
 import type { Settings } from '@/api/settings'
+import { Input, Button, Card, FormField } from '@/ui'
 
 export function Settings() {
   const queryClient = useQueryClient()
@@ -45,33 +46,32 @@ export function Settings() {
 
   if (isLoading) return null
 
+  const inputSelectClasses =
+    'w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100'
+
   return (
     <div className="space-y-6 max-w-xl">
       <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm p-6 space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Theme</label>
+      <Card className="space-y-6">
+        <FormField label="Theme">
           <select
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+            className={inputSelectClasses}
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
             <option value="system">System</option>
           </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Items per page</label>
-          <input
-            type="number"
-            min={5}
-            max={100}
-            value={itemsPerPage}
-            onChange={(e) => setItemsPerPage(Number(e.target.value))}
-            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-          />
-        </div>
+        </FormField>
+        <Input
+          label="Items per page"
+          type="number"
+          min={5}
+          max={100}
+          value={itemsPerPage}
+          onChange={(e) => setItemsPerPage(Number(e.target.value))}
+        />
         <label className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
           <input
             type="checkbox"
@@ -80,24 +80,18 @@ export function Settings() {
           />
           <span className="text-sm">Auto-refresh</span>
         </label>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Refresh interval (seconds)</label>
-          <input
-            type="number"
-            min={5}
-            max={300}
-            value={refreshInterval}
-            onChange={(e) => setRefreshInterval(Number(e.target.value))}
-            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-          />
-        </div>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
+        <Input
+          label="Refresh interval (seconds)"
+          type="number"
+          min={5}
+          max={300}
+          value={refreshInterval}
+          onChange={(e) => setRefreshInterval(Number(e.target.value))}
+        />
+        <Button variant="primary" onClick={handleSave}>
           Save Settings
-        </button>
-      </div>
+        </Button>
+      </Card>
     </div>
   )
 }

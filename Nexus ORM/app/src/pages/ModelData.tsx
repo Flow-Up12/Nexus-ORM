@@ -11,13 +11,12 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  Search,
   Columns3,
   ExternalLink,
   FileSpreadsheet,
   FileJson,
-  X,
 } from 'lucide-react'
+import { Button, SearchInput, Card, Modal, Input } from '@/ui'
 import { fetchSchema } from '@/api/schema'
 import {
   fetchRecords,
@@ -28,7 +27,7 @@ import {
 import { EditRecordModal } from '@/components/modals/EditRecordModal'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
 import { exportToCsv, exportToJson } from '@/utils/export'
-import type { ParsedModel, ParsedField, SchemaData } from '@/types/schema'
+import type { ParsedField, SchemaData } from '@/types/schema'
 
 function isRelationField(field: ParsedField, schema: SchemaData): boolean {
   const baseType = field.type.split(' ')[0].replace('[]', '').replace('?', '')
@@ -237,29 +236,25 @@ export function ModelData() {
               Filtered
             </span>
           )}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Filter records..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 w-56"
-            />
-          </div>
+          <SearchInput
+            placeholder="Filter records..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-56"
+          />
           <div className="flex items-center gap-2">
             <div className="relative" ref={columnPickerRef}>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={(e) => {
                   e.stopPropagation()
                   setShowColumnPicker(!showColumnPicker)
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 <Columns3 className="w-4 h-4" />
                 Columns
-              </button>
+              </Button>
             {showColumnPicker && (
               <div className="absolute left-0 top-full mt-1 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-10 min-w-[180px]">
                 {allFields.map((f) => (
@@ -281,7 +276,9 @@ export function ModelData() {
               </div>
             )}
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 if (filteredRecords.length === 0) {
                   toast.error('No data to export')
@@ -291,13 +288,14 @@ export function ModelData() {
                 setExportFilename(modelName || 'export')
                 setShowExportModal(true)
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
               title="Export as CSV"
             >
               <FileSpreadsheet className="w-4 h-4" />
               Export CSV
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 if (filteredRecords.length === 0) {
                   toast.error('No data to export')
@@ -307,24 +305,20 @@ export function ModelData() {
                 setExportFilename(modelName || 'export')
                 setShowExportModal(true)
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
               title="Export as JSON"
             >
               <FileJson className="w-4 h-4" />
               Export JSON
-            </button>
+            </Button>
           </div>
         </div>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
+        <Button variant="primary" onClick={() => setIsCreating(true)}>
           <Plus className="w-4 h-4" />
           New Record
-        </button>
+        </Button>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
+      <Card padding={false} className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -468,7 +462,7 @@ export function ModelData() {
             </button>
           </div>
         )}
-      </div>
+      </Card>
 
       {isCreating && (
         <EditRecordModal
@@ -489,60 +483,33 @@ export function ModelData() {
       )}
 
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowExportModal(false)}>
-          <div
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-600">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Export as {exportFormat.toUpperCase()}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowExportModal(false)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Modal
+          open
+          onClose={() => setShowExportModal(false)}
+          title={`Export as ${exportFormat.toUpperCase()}`}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowExportModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleExportConfirm}>
+                Export
+              </Button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Filename
-                </label>
-                <input
-                  type="text"
-                  value={exportFilename}
-                  onChange={(e) => setExportFilename(e.target.value)}
-                  placeholder="export"
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleExportConfirm()}
-                />
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  .{exportFormat} will be added automatically
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowExportModal(false)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportConfirm}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  Export
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          }
+        >
+          <Input
+            label="Filename"
+            value={exportFilename}
+            onChange={(e) => setExportFilename(e.target.value)}
+            placeholder="export"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && handleExportConfirm()}
+          />
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            .{exportFormat} will be added automatically
+          </p>
+        </Modal>
       )}
     </div>
   )

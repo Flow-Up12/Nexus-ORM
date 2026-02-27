@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { fetchSchema } from '@/api/schema'
 import { addField, updateField, deleteField } from '@/api/fields'
 import { Loader2, ArrowLeft, Key, Link2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Button, Badge, Table } from '@/ui'
 import { AddFieldModal } from '@/components/modals/AddFieldModal'
 import { FieldEditModal } from '@/components/modals/FieldEditModal'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
@@ -85,68 +86,83 @@ export function ModelStructure() {
 
   const isIdField = (field: { type: string }) => field.type.includes('@id')
 
+  const getBadgeVariant = (type: string): 'string' | 'stringarray' | 'int' | 'intarray' | 'float' | 'boolean' | 'datetime' | 'json' | 'array' | 'relation' | 'enum' | 'enumarray' => {
+    const base = type.split(' ')[0].replace('[]', '').replace('?', '')
+    const isArray = type.includes('[]')
+    if (isRelation({ type })) return 'relation'
+    if (enumNames.includes(base)) return isArray ? 'enumarray' : 'enum'
+    switch (base) {
+      case 'String': return isArray ? 'stringarray' : 'string'
+      case 'Int': return isArray ? 'intarray' : 'int'
+      case 'Float':
+      case 'Decimal': return 'float'
+      case 'Boolean': return 'boolean'
+      case 'DateTime': return 'datetime'
+      case 'Json': return 'json'
+      default: return isArray ? 'array' : 'string'
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <p className="text-slate-600 dark:text-slate-400">{model.fields?.length ?? 0} fields</p>
-        <button
-          onClick={() => setShowAddField(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
+        <Button variant="primary" onClick={() => setShowAddField(true)}>
           <Plus className="w-4 h-4" />
           Add Field
-        </button>
+        </Button>
       </div>
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600">
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Field</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Type</th>
-              <th className="w-24 px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {model.fields?.map((field) => (
-              <tr key={field.name} className="border-b border-slate-100 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    {field.type.includes('@id') ? (
-                      <Key className="w-4 h-4 text-amber-500" />
-                    ) : isRelation(field) ? (
-                      <Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    ) : null}
-                    <span className="font-medium text-slate-900 dark:text-slate-100">{field.name}</span>
+      <Table className="overflow-hidden">
+        <Table.Thead>
+          <Table.HeadRow>
+            <Table.HeadCell>Field</Table.HeadCell>
+            <Table.HeadCell>Type</Table.HeadCell>
+            <Table.HeadCell className="w-24">Actions</Table.HeadCell>
+          </Table.HeadRow>
+        </Table.Thead>
+        <Table.Tbody>
+          {model.fields?.map((field) => (
+            <Table.BodyRow key={field.name}>
+              <Table.BodyCell>
+                <div className="flex items-center gap-2">
+                  {field.type.includes('@id') ? (
+                    <Key className="w-4 h-4 text-amber-500" />
+                  ) : isRelation(field) ? (
+                    <Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  ) : null}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{field.name}</span>
+                </div>
+              </Table.BodyCell>
+              <Table.BodyCell>
+                <Badge variant={getBadgeVariant(field.type)}>{field.type}</Badge>
+              </Table.BodyCell>
+              <Table.BodyCell>
+                {!isIdField(field) && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="icon"
+                      size="sm"
+                      onClick={() => setEditingField({ name: field.name, type: field.type })}
+                      title="Edit"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="icon"
+                      size="sm"
+                      onClick={() => setDeletingField(field.name)}
+                      className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
-                </td>
-                <td className="px-6 py-4">
-                  <code className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-1 rounded">{field.type}</code>
-                </td>
-                <td className="px-6 py-4">
-                  {!isIdField(field) && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditingField({ name: field.name, type: field.type })}
-                        className="p-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                        title="Edit"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeletingField(field.name)}
-                        className="p-2 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                )}
+              </Table.BodyCell>
+            </Table.BodyRow>
+          ))}
+        </Table.Tbody>
+      </Table>
 
       {showAddField && (
         <AddFieldModal

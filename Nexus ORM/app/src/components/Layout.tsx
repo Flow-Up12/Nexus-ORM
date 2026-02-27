@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  Search,
   Table,
   List,
   Plus,
@@ -19,6 +18,7 @@ import {
   Moon,
   Terminal,
 } from 'lucide-react'
+import { SearchInput, Button } from '@/ui'
 import { fetchSchema } from '@/api/schema'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -97,29 +97,23 @@ export function Layout() {
                 </div>
               )}
             </div>
-            <button
-              type="button"
+            <Button
+              variant="icon"
               onClick={toggleTheme}
-              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors shrink-0"
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
               {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </button>
+            </Button>
           </div>
         </div>
 
         {!sidebarCollapsed && (
           <div className="p-2 border-b border-slate-100 dark:border-slate-700">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search models, enums..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
-              />
-            </div>
+            <SearchInput
+              placeholder="Search models, enums..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
         )}
 
