@@ -1,9 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
-  Loader2,
   Plus,
   Pencil,
   Trash2,
@@ -16,8 +15,8 @@ import {
   FileSpreadsheet,
   FileJson,
 } from 'lucide-react'
-import { Button, SearchInput, Card, Modal, Input } from '@/ui'
-import { fetchSchema } from '@/api/schema'
+import { Button, SearchInput, Card, Modal, Input, LoadingSpinner, ErrorMessage, Table } from '@/ui'
+import { useSchema, useMutationWithToast } from '@/hooks'
 import {
   fetchRecords,
   createRecord,
@@ -27,43 +26,12 @@ import {
 import { EditRecordModal } from '@/components/modals/EditRecordModal'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
 import { exportToCsv, exportToJson } from '@/utils/export'
-import type { ParsedField, SchemaData } from '@/types/schema'
-
-function isRelationField(field: ParsedField, schema: SchemaData): boolean {
-  const baseType = field.type.split(' ')[0].replace('[]', '').replace('?', '')
-  return (
-    field.type.includes('@relation') ||
-    (schema?.parsed?.models?.some((m) => m.name === baseType) ?? false)
-  )
-}
-
-function getRelationTargetModel(field: ParsedField): string {
-  return field.type.split(' ')[0].replace('[]', '').replace('?', '')
-}
-
-function formatRelationDisplay(
-  rel: Record<string, unknown> | Record<string, unknown>[] | null,
-  isArray: boolean
-): string {
-  if (rel == null) return '—'
-  if (isArray && Array.isArray(rel)) {
-    return rel.length ? `${rel.length} item(s)` : '—'
-  }
-  if (typeof rel === 'object' && !Array.isArray(rel)) {
-    const r = rel as Record<string, unknown>
-    const parts = ['street', 'city', 'state', 'zipCode', 'name', 'accountNumber']
-      .filter((k) => r[k] != null && r[k] !== '')
-      .map((k) => String(r[k]))
-    if (parts.length) return parts.join(', ')
-    if (r.id != null) return `#${r.id}`
-  }
-  return '—'
-}
+import { isRelationField, getRelationTargetModel, formatRelationDisplay } from '@/utils/schema'
+import type { SchemaData } from '@/types/schema'
 
 export function ModelData() {
   const { modelName } = useParams<{ modelName: string }>()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [deletingRecord, setDeletingRecord] = useState<Record<string, unknown> | null>(null)
@@ -89,7 +57,7 @@ export function ModelData() {
     return () => document.removeEventListener('click', handleClick)
   }, [showColumnPicker])
 
-  const { data: schema } = useQuery({ queryKey: ['schema'], queryFn: fetchSchema })
+  const { schema } = useSchema()
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
 
   const urlFilters = useMemo(() => {
@@ -137,24 +105,20 @@ export function ModelData() {
     enabled: !!modelName,
   })
 
-  const createMutation = useMutation({
+  const createMutation = useMutationWithToast({
     mutationFn: (data: Record<string, unknown>) => createRecord(modelName!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['records', modelName] })
-      toast.success('Record created')
-      setIsCreating(false)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Create failed'),
+    invalidateKeys: [['records', modelName!]],
+    successMessage: 'Record created',
+    errorMessage: 'Create failed',
+    onSuccess: () => setIsCreating(false),
   })
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useMutationWithToast({
     mutationFn: (id: number) => deleteRecord(modelName!, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['records', modelName] })
-      toast.success('Record deleted')
-      setDeletingRecord(null)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Delete failed'),
+    invalidateKeys: [['records', modelName!]],
+    successMessage: 'Record deleted',
+    errorMessage: 'Delete failed',
+    onSuccess: () => setDeletingRecord(null),
   })
 
   const displayFields = useMemo(() => {
@@ -207,19 +171,11 @@ export function ModelData() {
   if (!modelName || !model) return null
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   if (error) {
-    return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-        Failed to load data
-      </div>
-    )
+    return <ErrorMessage message="Failed to load data" />
   }
 
   const meta = data?.meta?.pagination
@@ -321,121 +277,114 @@ export function ModelData() {
       <Card padding={false} className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600">
-                {displayFields.map((f) => {
-                  const isRelation = isRelationField(f, schema!)
-                  return (
-                    <th
-                      key={f.name}
-                      className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => !isRelation && handleSort(f.name)}
-                        className={`flex items-center gap-1 ${!isRelation ? 'hover:text-indigo-600 dark:hover:text-indigo-400' : ''}`}
-                      >
-                          {f.name}
-                          {!isRelation && sortBy === f.name && (
-                            sortOrder === 'asc' ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )
-                          )}
-                      </button>
-                    </th>
-                  )
-                })}
-                <th className="text-right px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.map((record: Record<string, unknown>) => (
-                <tr
-                  key={String(record.id)}
-                  onClick={() => {
-                    if (record.id != null) {
-                      navigate(`/model/${modelName}/record/${record.id}`)
-                    }
-                  }}
-                  className="border-b border-slate-100 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer"
-                >
-                  {displayFields.map((f) => {
-                    const isRelation = isRelationField(f, schema!)
-                    const isArray = f.type.includes('[]')
-                    const targetModel = isRelation ? getRelationTargetModel(f) : null
-                    const val = record[f.name]
-
-                    if (isRelation && targetModel) {
-                      const display = formatRelationDisplay(
-                        val as Record<string, unknown> | Record<string, unknown>[] | null,
-                        isArray
-                      )
-                      const relId =
-                        val && typeof val === 'object' && !Array.isArray(val) && 'id' in (val as object)
-                          ? (val as { id: number }).id
-                          : null
-                      const prismaModelName =
-                        modelName!.charAt(0).toLowerCase() + modelName!.slice(1)
-                      const fkOnTarget = `${prismaModelName}Id`
-                      const linkTo =
-                        !isArray && relId
-                          ? `/model/${targetModel}/record/${relId}`
-                          : record.id != null
-                            ? `/model/${targetModel}/data?${fkOnTarget}=${record.id}`
-                            : `/model/${targetModel}/data`
-                      const canLink = relId || (isArray && (val as unknown[])?.length)
-                      return (
-                        <td key={f.name} className="px-6 py-4 text-sm">
-                          {canLink ? (
-                            <Link
-                              to={linkTo}
-                              className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {display}
-                              <ExternalLink className="w-3 h-3" />
-                            </Link>
-                          ) : (
-                            <span className="text-slate-500 dark:text-slate-400">{display}</span>
-                          )}
-                        </td>
-                      )
-                    }
-
-                    return (
-                      <td
-                        key={f.name}
-                        className="px-6 py-4 text-sm text-slate-900 dark:text-slate-100"
-                      >
-                        {record[f.name] != null ? String(record[f.name]) : '—'}
-                      </td>
-                    )
-                  })}
-                  <td
-                    className="px-6 py-4 text-right"
-                    onClick={(e) => e.stopPropagation()}
+            <Table.Thead>
+          <Table.HeadRow>
+            {displayFields.map((f) => {
+              const isRelation = isRelationField(f, schema!)
+              return (
+                <Table.HeadCell key={f.name}>
+                  <button
+                    type="button"
+                    onClick={() => !isRelation && handleSort(f.name)}
+                    className={`flex items-center gap-1 ${!isRelation ? 'hover:text-indigo-600 dark:hover:text-indigo-400' : ''}`}
                   >
-                    <Link
-                      to={`/model/${modelName}/record/${record.id}`}
-                      className="inline-flex p-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Link>
-                    <button
-                      onClick={() => setDeletingRecord(record as Record<string, unknown>)}
-                      className="p-2 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+                    {f.name}
+                    {!isRelation && sortBy === f.name &&
+                      (sortOrder === 'asc' ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      ))}
+                  </button>
+                </Table.HeadCell>
+              )
+            })}
+            <Table.HeadCell className="text-right">
+              Actions
+            </Table.HeadCell>
+          </Table.HeadRow>
+        </Table.Thead>
+        <Table.Tbody>
+          {filteredRecords.map((record: Record<string, unknown>) => (
+            <Table.BodyRow
+              key={String(record.id)}
+              className="cursor-pointer"
+              onClick={() => {
+                if (record.id != null) {
+                  navigate(`/model/${modelName}/record/${record.id}`)
+                }
+              }}
+            >
+              {displayFields.map((f) => {
+                const isRelation = isRelationField(f, schema!)
+                const isArray = f.type.includes('[]')
+                const targetModel = isRelation ? getRelationTargetModel(f) : null
+                const val = record[f.name]
+
+                if (isRelation && targetModel) {
+                  const display = formatRelationDisplay(
+                    val as Record<string, unknown> | Record<string, unknown>[] | null,
+                    isArray
+                  )
+                  const relId =
+                    val && typeof val === 'object' && !Array.isArray(val) && 'id' in (val as object)
+                      ? (val as { id: number }).id
+                      : null
+                  const prismaModelName =
+                    modelName!.charAt(0).toLowerCase() + modelName!.slice(1)
+                  const fkOnTarget = `${prismaModelName}Id`
+                  const linkTo =
+                    !isArray && relId
+                      ? `/model/${targetModel}/record/${relId}`
+                      : record.id != null
+                        ? `/model/${targetModel}/data?${fkOnTarget}=${record.id}`
+                        : `/model/${targetModel}/data`
+                  const canLink = relId || (isArray && (val as unknown[])?.length)
+                  return (
+                    <Table.BodyCell key={f.name}>
+                      {canLink ? (
+                        <Link
+                          to={linkTo}
+                          className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {display}
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      ) : (
+                        <span className="text-slate-500 dark:text-slate-400">{display}</span>
+                      )}
+                    </Table.BodyCell>
+                  )
+                }
+
+                return (
+                  <Table.BodyCell key={f.name}>
+                    {record[f.name] != null ? String(record[f.name]) : '—'}
+                  </Table.BodyCell>
+                )
+              })}
+              <Table.BodyCell
+                className="text-right"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Link
+                  to={`/model/${modelName}/record/${record.id}`}
+                  className="inline-flex p-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Link>
+                <button
+                  onClick={() => setDeletingRecord(record as Record<string, unknown>)}
+                  className="p-2 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </Table.BodyCell>
+            </Table.BodyRow>
+          ))}
+        </Table.Tbody>
           </table>
         </div>
 

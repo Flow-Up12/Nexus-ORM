@@ -1,8 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
-import { fetchSchema } from '@/api/schema'
 import { FullSchemaERDiagram } from '@/components/FullSchemaERDiagram'
+import { LoadingSpinner, ErrorMessage } from '@/ui'
+import { useSchema } from '@/hooks'
 import type { SchemaData, ParsedModel } from '@/types/schema'
 
 function getRelatedModelNames(model: ParsedModel, allModels: ParsedModel[]): Set<string> {
@@ -19,28 +18,17 @@ function getRelatedModelNames(model: ParsedModel, allModels: ParsedModel[]): Set
 
 export function ModelDiagram() {
   const { modelName } = useParams<{ modelName: string }>()
-  const { data: schema, isLoading, error } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
+  const { schema, isLoading, error, models } = useSchema()
 
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
-  const allModels = schema?.parsed?.models ?? []
+  const allModels = models
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   if (error || !model) {
-    return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-        Model not found: {modelName}
-      </div>
-    )
+    return <ErrorMessage message={`Model not found: ${modelName}`} />
   }
 
   const relatedNames = getRelatedModelNames(model, allModels)

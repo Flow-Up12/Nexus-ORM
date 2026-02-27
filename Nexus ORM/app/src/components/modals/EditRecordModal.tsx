@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ExternalLink } from 'lucide-react'
-import { Modal, Button, Input, FormField } from '@/ui'
+import { Modal, Button, Input, Checkbox, Textarea, Select, Card } from '@/ui'
 import type { ParsedModel, SchemaData } from '@/types/schema'
 import { fetchRecords } from '@/api/records'
 
@@ -175,32 +175,25 @@ export function EditRecordModal({ model, schema, record, onSave, onCancel, inlin
 
               if (inputType === 'checkbox') {
                 return (
-                  <div key={field.name} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(value)}
-                      onChange={(e) => handleChange(field.name, e.target.checked)}
-                      className="rounded border-slate-300"
-                    />
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{field.name}</label>
-                  </div>
+                  <Checkbox
+                    key={field.name}
+                    label={field.name}
+                    checked={Boolean(value)}
+                    onChange={(e) => handleChange(field.name, e.target.checked)}
+                  />
                 )
               }
 
               if (inputType === 'textarea') {
                 return (
-                  <div key={field.name}>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      {field.name} {isRequired && isCreating && '*'}
-                    </label>
-                    <textarea
-                      value={String(value ?? '')}
-                      onChange={(e) => handleChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      rows={3}
-                      required={isRequired && isCreating}
-                    />
-                  </div>
+                  <Textarea
+                    key={field.name}
+                    label={`${field.name}${isRequired && isCreating ? ' *' : ''}`}
+                    value={String(value ?? '')}
+                    onChange={(e) => handleChange(field.name, e.target.value)}
+                    rows={3}
+                    monospace
+                  />
                 )
               }
 
@@ -249,9 +242,9 @@ export function EditRecordModal({ model, schema, record, onSave, onCancel, inlin
 
   if (inline) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
+      <Card padding={false} className="overflow-hidden">
         {formContent}
-      </div>
+      </Card>
     )
   }
 
@@ -373,38 +366,36 @@ function RelationField({
       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
         {field.name} {required && '*'}
       </label>
-      <div className="flex gap-2">
-        <select
-          value={selectedId != null ? String(selectedId) : ''}
-          onChange={(e) => {
-            const v = e.target.value
-            if (v === '__create__') {
-              onChange({ __create: true, __pending: true })
-              setShowCreateNew(true)
-              return
-            }
-            const id = v ? Number(v) : null
-            const opt = options.find((o) => o.id === id)
-            onChange(opt ?? null)
-          }}
-          className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-          disabled={loading}
-        >
-          <option value="">— Select —</option>
-          {options.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {String(opt[displayField] ?? opt.id)}
-            </option>
-          ))}
-          {!hasFk && targetModel && (
-            <option value="__create__">
-              {value && typeof value === 'object' && '__create' in value && !(value as Record<string, unknown>).__pending
-                ? formatRelationDisplay(value as Record<string, unknown>, targetModelName)
-                : `+ Create New ${targetModelName}`}
-            </option>
-          )}
-        </select>
-      </div>
+      <Select
+        label={`${field.name} ${required ? '*' : ''}`}
+        value={selectedId != null ? String(selectedId) : ''}
+        onChange={(e) => {
+          const v = e.target.value
+          if (v === '__create__') {
+            onChange({ __create: true, __pending: true })
+            setShowCreateNew(true)
+            return
+          }
+          const id = v ? Number(v) : null
+          const opt = options.find((o) => o.id === id)
+          onChange(opt ?? null)
+        }}
+        disabled={loading}
+      >
+        <option value="">— Select —</option>
+        {options.map((opt) => (
+          <option key={opt.id} value={opt.id}>
+            {String(opt[displayField] ?? opt.id)}
+          </option>
+        ))}
+        {!hasFk && targetModel && (
+          <option value="__create__">
+            {value && typeof value === 'object' && '__create' in value && !(value as Record<string, unknown>).__pending
+              ? formatRelationDisplay(value as Record<string, unknown>, targetModelName)
+              : `+ Create New ${targetModelName}`}
+          </option>
+        )}
+      </Select>
 
       {showCreateNew &&
         targetModel &&

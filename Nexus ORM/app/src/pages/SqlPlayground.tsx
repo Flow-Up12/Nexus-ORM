@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Play, FileJson, FileSpreadsheet, HelpCircle, Save, Plus, Trash2, FileDown, FileUp } from 'lucide-react'
-import { Modal, Button, Input, Table } from '@/ui'
+import { Modal, Button, Input, Table, Card } from '@/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { runSqlQuery, saveSqlScriptToServer, listSqlScripts, loadSqlScriptFromServer } from '@/api/query'
 import { exportToCsv, exportToJson } from '@/utils/export'
@@ -307,7 +307,7 @@ export function SqlPlayground() {
         </p>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
+      <Card padding={false} className="overflow-hidden">
         <div className="border-b border-slate-200 dark:border-slate-600 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-medium text-slate-600 dark:text-slate-400 shrink-0">
@@ -442,10 +442,10 @@ export function SqlPlayground() {
             Run Query
           </Button>
         </div>
-      </div>
+      </Card>
 
       {results !== null && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
+        <Card padding={false} className="overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
             <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
               Results ({results.length} row{results.length !== 1 ? 's' : ''})
@@ -499,7 +499,7 @@ export function SqlPlayground() {
               </table>
             )}
           </div>
-        </div>
+        </Card>
       )}
 
       {showHelpModal && (

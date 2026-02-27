@@ -1,31 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { fetchSchema } from '@/api/schema'
-import { Database, GitBranch, FileCode, Loader2, Table } from 'lucide-react'
-import { Card } from '@/ui'
+import { Database, GitBranch, FileCode, Table } from 'lucide-react'
+import { Card, LoadingSpinner, ErrorMessage } from '@/ui'
+import { useSchema } from '@/hooks'
 
 export function Dashboard() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
-
-  const models = data?.parsed?.models ?? []
+  const { models, isLoading, error } = useSchema()
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner containerClassName="h-96" />
   }
 
   if (error) {
-    return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-        Failed to load schema
-      </div>
-    )
+    return <ErrorMessage message="Failed to load schema" />
   }
 
   return (

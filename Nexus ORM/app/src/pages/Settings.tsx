@@ -1,12 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
 import { fetchSettings, saveSettings } from '@/api/settings'
 import type { Settings } from '@/api/settings'
-import { Input, Button, Card, FormField } from '@/ui'
+import { Input, Button, Card, Select, Checkbox } from '@/ui'
+import { useMutationWithToast } from '@/hooks'
 
 export function Settings() {
-  const queryClient = useQueryClient()
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: fetchSettings,
@@ -26,13 +25,11 @@ export function Settings() {
     }
   }, [settings])
 
-  const saveMutation = useMutation({
+  const saveMutation = useMutationWithToast({
     mutationFn: (s: Settings) => saveSettings(s),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
-      toast.success('Settings saved')
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to save'),
+    invalidateKeys: [['settings']],
+    successMessage: 'Settings saved',
+    errorMessage: 'Failed to save',
   })
 
   const handleSave = () => {
@@ -46,24 +43,15 @@ export function Settings() {
 
   if (isLoading) return null
 
-  const inputSelectClasses =
-    'w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100'
-
   return (
     <div className="space-y-6 max-w-xl">
       <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
       <Card className="space-y-6">
-        <FormField label="Theme">
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            className={inputSelectClasses}
-          >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="system">System</option>
-          </select>
-        </FormField>
+        <Select label="Theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">System</option>
+        </Select>
         <Input
           label="Items per page"
           type="number"
@@ -72,14 +60,11 @@ export function Settings() {
           value={itemsPerPage}
           onChange={(e) => setItemsPerPage(Number(e.target.value))}
         />
-        <label className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-          <input
-            type="checkbox"
-            checked={autoRefresh}
-            onChange={(e) => setAutoRefresh(e.target.checked)}
-          />
-          <span className="text-sm">Auto-refresh</span>
-        </label>
+        <Checkbox
+          label="Auto-refresh"
+          checked={autoRefresh}
+          onChange={(e) => setAutoRefresh(e.target.checked)}
+        />
         <Input
           label="Refresh interval (seconds)"
           type="number"

@@ -1,88 +1,65 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams, Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { fetchSchema } from '@/api/schema'
+import { useParams } from 'react-router-dom'
 import { addField, updateField, deleteField } from '@/api/fields'
-import { Loader2, ArrowLeft, Key, Link2, Plus, Pencil, Trash2 } from 'lucide-react'
-import { Button, Badge, Table } from '@/ui'
+import { Key, Link2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Button, Badge, Table, LoadingSpinner, ErrorMessage, BackLink } from '@/ui'
 import { AddFieldModal } from '@/components/modals/AddFieldModal'
 import { FieldEditModal } from '@/components/modals/FieldEditModal'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
+import { useSchema, useMutationWithToast } from '@/hooks'
 import type { FieldData } from '@/api/fields'
 
 export function ModelStructure() {
   const { modelName } = useParams<{ modelName: string }>()
-  const queryClient = useQueryClient()
   const [showAddField, setShowAddField] = useState(false)
   const [editingField, setEditingField] = useState<{ name: string; type: string } | null>(null)
   const [deletingField, setDeletingField] = useState<string | null>(null)
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
+  const { schema, isLoading, error, modelNames, enumNames } = useSchema()
+  const model = schema?.parsed?.models?.find((m) => m.name === modelName)
+  const filteredModelNames = modelNames.filter((n) => n !== modelName)
 
-  const addMutation = useMutation({
+  const addMutation = useMutationWithToast({
     mutationFn: (field: FieldData) => addField(modelName!, field),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schema'] })
-      toast.success('Field added')
-      setShowAddField(false)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to add field'),
+    invalidateKeys: [['schema']],
+    successMessage: 'Field added',
+    errorMessage: 'Failed to add field',
+    onSuccess: () => setShowAddField(false),
   })
 
-  const updateMutation = useMutation({
+  const updateMutation = useMutationWithToast({
     mutationFn: ({ oldName, newField }: { oldName: string; newField: { name: string; type: string } }) =>
       updateField(modelName!, oldName, newField),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schema'] })
-      toast.success('Field updated')
-      setEditingField(null)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to update field'),
+    invalidateKeys: [['schema']],
+    successMessage: 'Field updated',
+    errorMessage: 'Failed to update field',
+    onSuccess: () => setEditingField(null),
   })
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useMutationWithToast({
     mutationFn: (fieldName: string) => deleteField(modelName!, fieldName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schema'] })
-      toast.success('Field deleted')
-      setDeletingField(null)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to delete field'),
+    invalidateKeys: [['schema']],
+    successMessage: 'Field deleted',
+    errorMessage: 'Failed to delete field',
+    onSuccess: () => setDeletingField(null),
   })
-
-  const model = data?.parsed?.models?.find((m) => m.name === modelName)
-  const modelNames = data?.parsed?.models?.map((m) => m.name).filter((n) => n !== modelName) ?? []
-  const enumNames = data?.parsed?.enums?.map((e) => e.name) ?? []
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner containerClassName="h-96" />
   }
 
   if (error || !model) {
     return (
       <div className="space-y-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-          Model not found: {modelName}
-        </div>
+        <BackLink to="/">Back to Dashboard</BackLink>
+        <ErrorMessage message={`Model not found: ${modelName}`} />
       </div>
     )
   }
 
   const isRelation = (field: { type: string }) =>
     field.type.includes('@relation') ||
-    data?.parsed?.models?.some((m) => m.name === field.type.split(' ')[0].replace('[]', '').replace('?', ''))
+    schema?.parsed?.models?.some((m) => m.name === field.type.split(' ')[0].replace('[]', '').replace('?', ''))
 
   const isIdField = (field: { type: string }) => field.type.includes('@id')
 
@@ -168,7 +145,7 @@ export function ModelStructure() {
         <AddFieldModal
           onSave={(field) => addMutation.mutate(field)}
           onCancel={() => setShowAddField(false)}
-          modelNames={modelNames}
+          modelNames={filteredModelNames}
           enumNames={enumNames}
         />
       )}
@@ -177,7 +154,7 @@ export function ModelStructure() {
           field={editingField}
           onSave={(newField) => updateMutation.mutate({ oldName: editingField.name, newField })}
           onCancel={() => setEditingField(null)}
-          modelNames={modelNames}
+          modelNames={filteredModelNames}
           enumNames={enumNames}
         />
       )}

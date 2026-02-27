@@ -1,30 +1,23 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchSchema } from '@/api/schema'
 import { FullSchemaERDiagram } from '@/components/FullSchemaERDiagram'
 import { MermaidERDiagram } from '@/components/MermaidERDiagram'
-import { Loader2, GitBranch, FileText } from 'lucide-react'
+import { GitBranch, FileText } from 'lucide-react'
+import { LoadingSpinner, ErrorMessage, PageHeader } from '@/ui'
+import { useSchema } from '@/hooks'
 
 export function FullSchemaDiagram() {
   const [view, setView] = useState<'interactive' | 'mermaid'>('interactive')
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
+  const { schema: data, isLoading, error } = useSchema()
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner containerClassName="h-96" />
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-        Failed to load schema: {error instanceof Error ? error.message : 'Unknown error'}
-      </div>
+      <ErrorMessage
+        message={`Failed to load schema: ${error instanceof Error ? error.message : 'Unknown error'}`}
+      />
     )
   }
 
@@ -33,12 +26,10 @@ export function FullSchemaDiagram() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Full Schema ER Diagram</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Complete database schema with all {data.parsed.models.length} models and relationships.
-          </p>
-        </div>
+        <PageHeader
+          title="Full Schema ER Diagram"
+          description={`Complete database schema with all ${data.parsed.models.length} models and relationships.`}
+        />
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-slate-600 dark:text-slate-400">View:</span>
           <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-1">

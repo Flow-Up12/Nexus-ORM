@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import {
   Database,
   LayoutGrid,
@@ -19,7 +18,7 @@ import {
   Terminal,
 } from 'lucide-react'
 import { SearchInput, Button } from '@/ui'
-import { fetchSchema } from '@/api/schema'
+import { useSchema } from '@/hooks'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 
@@ -48,13 +47,7 @@ export function Layout() {
     }
   }, [sidebarCollapsed])
 
-  const { data: schema } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
-
-  const models = schema?.parsed?.models ?? []
-  const enums = schema?.parsed?.enums ?? []
+  const { models, enums } = useSchema()
 
   const searchLower = search.toLowerCase().trim()
   const filteredModels = searchLower

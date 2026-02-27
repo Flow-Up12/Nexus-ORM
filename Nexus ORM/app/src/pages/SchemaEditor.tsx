@@ -1,21 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Save, Play, Database, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { Save, Play, Database, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { LoadingSpinner, ErrorMessage, Button, Input, Textarea, PageHeader } from '@/ui'
 import {
-  fetchSchema,
   saveSchemaRaw,
   generateClient,
   runMigration,
   fetchMigrations,
 } from '@/api/schema'
+import { useSchema } from '@/hooks'
 
 export function SchemaEditor() {
   const queryClient = useQueryClient()
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
+  const { schema: data, isLoading, error, refetch } = useSchema()
   const { data: migrationsData } = useQuery({
     queryKey: ['migrations'],
     queryFn: fetchMigrations,
@@ -84,61 +82,52 @@ export function SchemaEditor() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner containerClassName="h-96" />
   }
 
   if (error) {
-    return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-        Failed to load schema
-      </div>
-    )
+    return <ErrorMessage message="Failed to load schema" />
   }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Schema Editor</h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Edit Prisma schema and run migrations</p>
-      </div>
+      <PageHeader
+        title="Schema Editor"
+        description="Edit Prisma schema and run migrations"
+      />
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
+          variant="primary"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleGenerate}
           disabled={generating}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50"
+          className="bg-slate-700 hover:bg-slate-800"
         >
           <Play className="w-4 h-4" />
           {generating ? 'Generating...' : 'Generate Client'}
-        </button>
+        </Button>
         <div className="inline-flex items-center gap-2">
-          <input
-            type="text"
+          <Input
             placeholder="Migration name"
             value={migrationName}
             onChange={(e) => setMigrationName(e.target.value)}
-            className="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm w-48 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+            className="w-48"
           />
-          <button
+          <Button
             onClick={handleMigrate}
             disabled={migrating || !migrationName.trim()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            className="bg-emerald-600 hover:bg-emerald-700"
           >
             <Database className="w-4 h-4" />
             {migrating ? 'Migrating...' : 'Run Migration'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -188,10 +177,11 @@ export function SchemaEditor() {
         )}
       </div>
 
-      <textarea
+      <Textarea
         value={content}
         onChange={(e) => setRawContent(e.target.value)}
-        className="w-full h-[calc(100vh-380px)] p-4 font-mono text-sm border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+        className="[&>textarea]:h-[calc(100vh-380px)]"
+        monospace
         spellCheck={false}
       />
     </div>

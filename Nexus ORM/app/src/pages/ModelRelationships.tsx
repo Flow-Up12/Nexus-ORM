@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { Loader2, Link2, ArrowRight } from 'lucide-react'
-import { fetchSchema } from '@/api/schema'
+import { ArrowRight } from 'lucide-react'
+import { LoadingSpinner, ErrorMessage, Card, Table } from '@/ui'
+import { useSchema } from '@/hooks'
 import type { ParsedModel, SchemaData } from '@/types/schema'
 
 function getRelationships(model: ParsedModel, schema: SchemaData) {
@@ -23,82 +23,69 @@ function getRelationships(model: ParsedModel, schema: SchemaData) {
 
 export function ModelRelationships() {
   const { modelName } = useParams<{ modelName: string }>()
-  const { data: schema, isLoading, error } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
-  })
+  const { schema, isLoading, error } = useSchema()
 
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
   const relationships = model && schema ? getRelationships(model, schema) : []
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   if (error || !model) {
-    return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-        Model not found: {modelName}
-      </div>
-    )
+    return <ErrorMessage message={`Model not found: ${modelName}`} />
   }
 
   if (relationships.length === 0) {
     return (
-      <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 text-center text-slate-600 dark:text-slate-400">
+      <Card className="text-center text-slate-600 dark:text-slate-400">
         No relationships defined for this model
-      </div>
+      </Card>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600">
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Field</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Type</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Related Model</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Cardinality</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-slate-600 dark:text-slate-400">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {relationships.map((rel) => (
-              <tr key={rel.field} className="border-b border-slate-100 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                <td className="px-6 py-4">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{rel.field}</span>
-                </td>
-                <td className="px-6 py-4">
-                  <code className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-1 rounded">
-                    {rel.target}{rel.isArray ? '[]' : ''}{rel.isOptional ? '?' : ''}
-                  </code>
-                </td>
-                <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{rel.target}</td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    {rel.isArray ? 'One-to-Many' : 'One-to-One'}
-                    {rel.isOptional && ' (optional)'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <Link
-                    to={`/model/${rel.target}/data`}
-                    className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
-                  >
-                    View <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table padding={false} className="overflow-hidden">
+        <Table.Thead>
+          <Table.HeadRow>
+            <Table.HeadCell>Field</Table.HeadCell>
+            <Table.HeadCell>Type</Table.HeadCell>
+            <Table.HeadCell>Related Model</Table.HeadCell>
+            <Table.HeadCell>Cardinality</Table.HeadCell>
+            <Table.HeadCell>Action</Table.HeadCell>
+          </Table.HeadRow>
+        </Table.Thead>
+        <Table.Tbody>
+          {relationships.map((rel) => (
+            <Table.BodyRow key={rel.field}>
+              <Table.BodyCell>
+                <span className="font-medium text-slate-900 dark:text-slate-100">{rel.field}</span>
+              </Table.BodyCell>
+              <Table.BodyCell>
+                <code className="text-sm bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-1 rounded">
+                  {rel.target}{rel.isArray ? '[]' : ''}{rel.isOptional ? '?' : ''}
+                </code>
+              </Table.BodyCell>
+              <Table.BodyCell className="text-slate-700 dark:text-slate-300">{rel.target}</Table.BodyCell>
+              <Table.BodyCell>
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  {rel.isArray ? 'One-to-Many' : 'One-to-One'}
+                  {rel.isOptional && ' (optional)'}
+                </span>
+              </Table.BodyCell>
+              <Table.BodyCell>
+                <Link
+                  to={`/model/${rel.target}/data`}
+                  className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+                >
+                  View <ArrowRight className="w-4 h-4" />
+                </Link>
+              </Table.BodyCell>
+            </Table.BodyRow>
+          ))}
+        </Table.Tbody>
+      </Table>
     </div>
   )
 }

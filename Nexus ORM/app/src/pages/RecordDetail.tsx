@@ -1,25 +1,14 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { toast } from 'sonner'
-import { Loader2, ArrowLeft, Pencil, Trash2, ExternalLink, Eye } from 'lucide-react'
-import { fetchSchema } from '@/api/schema'
+import { Pencil, Trash2, ExternalLink, Eye } from 'lucide-react'
+import { Card, Button, BackLink, LoadingSpinner, ErrorMessage } from '@/ui'
+import { useSchema, useMutationWithToast } from '@/hooks'
 import { fetchRecord, updateRecord, deleteRecord } from '@/api/records'
 import { EditRecordModal } from '@/components/modals/EditRecordModal'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
-import type { ParsedModel, ParsedField, SchemaData } from '@/types/schema'
-
-function isRelationField(field: ParsedField, schema: SchemaData): boolean {
-  const baseType = field.type.split(' ')[0].replace('[]', '').replace('?', '')
-  return (
-    field.type.includes('@relation') ||
-    (schema?.parsed?.models?.some((m) => m.name === baseType) ?? false)
-  )
-}
-
-function getRelationTargetModel(field: ParsedField): string {
-  return field.type.split(' ')[0].replace('[]', '').replace('?', '')
-}
+import { isRelationField, getRelationTargetModel } from '@/utils/schema'
+import type { ParsedModel, SchemaData } from '@/types/schema'
 
 function formatValue(val: unknown): string {
   if (val == null) return '—'
@@ -43,10 +32,9 @@ interface RecordDetailProps {
 export function RecordDetail({ mode }: RecordDetailProps) {
   const { modelName, id } = useParams<{ modelName: string; id: string }>()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [deleting, setDeleting] = useState(false)
 
-  const { data: schema } = useQuery({ queryKey: ['schema'], queryFn: fetchSchema })
+  const { schema } = useSchema()
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
 
   const relationFields = model?.fields?.filter((f) => isRelationField(f, schema!)) ?? []
@@ -58,51 +46,37 @@ export function RecordDetail({ mode }: RecordDetailProps) {
     enabled: !!modelName && !!id,
   })
 
-  const updateMutation = useMutation({
+  const updateMutation = useMutationWithToast({
     mutationFn: (payload: Record<string, unknown>) =>
       updateRecord(modelName!, id!, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['record', modelName, id] })
-      queryClient.invalidateQueries({ queryKey: ['records', modelName] })
-      toast.success('Record updated')
-      navigate(`/model/${modelName}/record/${id}/show`)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Update failed'),
+    invalidateKeys: [
+      ['record', modelName!, id!],
+      ['records', modelName!],
+    ],
+    successMessage: 'Record updated',
+    errorMessage: 'Update failed',
+    onSuccess: () => navigate(`/model/${modelName}/record/${id}/show`),
   })
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useMutationWithToast({
     mutationFn: () => deleteRecord(modelName!, id!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['records', modelName] })
-      toast.success('Record deleted')
-      navigate(`/model/${modelName}/data`)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Delete failed'),
+    invalidateKeys: [['records', modelName!]],
+    successMessage: 'Record deleted',
+    errorMessage: 'Delete failed',
+    onSuccess: () => navigate(`/model/${modelName}/data`),
   })
 
   if (!modelName || !id || !model) return null
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   if (error) {
     return (
       <div className="space-y-4">
-        <Link
-          to={`/model/${modelName}/data`}
-          className="inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Data
-        </Link>
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-          Failed to load record
-        </div>
+        <BackLink to={`/model/${modelName}/data`}>Back to Data</BackLink>
+        <ErrorMessage message="Failed to load record" />
       </div>
     )
   }
@@ -122,28 +96,22 @@ export function RecordDetail({ mode }: RecordDetailProps) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <Link
-            to={`/model/${modelName}/data`}
-            className="inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:underline"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Data
-          </Link>
+          <BackLink to={`/model/${modelName}/data`}>Back to Data</BackLink>
           <div className="flex gap-2">
-            <Link
-              to={showPath}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-            >
-              <Eye className="w-4 h-4" />
-              View
+            <Link to={showPath}>
+              <Button variant="secondary">
+                <Eye className="w-4 h-4" />
+                View
+              </Button>
             </Link>
-            <button
+            <Button
+              variant="danger"
               onClick={() => setDeleting(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+              className="border border-red-200 dark:border-red-800"
             >
               <Trash2 className="w-4 h-4" />
               Delete
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -170,32 +138,26 @@ export function RecordDetail({ mode }: RecordDetailProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link
-          to={`/model/${modelName}/data`}
-          className="inline-flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:underline"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Data
-        </Link>
+        <BackLink to={`/model/${modelName}/data`}>Back to Data</BackLink>
         <div className="flex gap-2">
-          <Link
-            to={editPath}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            <Pencil className="w-4 h-4" />
-            Edit
+          <Link to={editPath}>
+            <Button variant="primary">
+              <Pencil className="w-4 h-4" />
+              Edit
+            </Button>
           </Link>
-          <button
+          <Button
+            variant="danger"
             onClick={() => setDeleting(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+            className="border border-red-200 dark:border-red-800"
           >
             <Trash2 className="w-4 h-4" />
             Delete
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden">
+      <Card padding={false} className="overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-600">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {modelName} #{record.id}
@@ -252,7 +214,7 @@ export function RecordDetail({ mode }: RecordDetailProps) {
             )
           })}
         </dl>
-      </div>
+      </Card>
 
       {deleting && (
         <ConfirmDeleteModal
