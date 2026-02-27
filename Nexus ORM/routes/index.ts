@@ -1,10 +1,14 @@
 import { exec } from "child_process"
+import { fileURLToPath } from "url"
 import express, { Router } from "express"
 import fs, { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import path, { join } from "path"
 import { promisify } from "util"
 import { Prisma } from "@prisma/client"
 import { prisma } from "../../lib/prisma"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 function handlePrismaError(error: unknown, res: express.Response, fallbackMessage: string) {
     if (error instanceof Prisma.PrismaClientValidationError) {
@@ -40,10 +44,10 @@ function handlePrismaError(error: unknown, res: express.Response, fallbackMessag
 
 const router = Router()
 
-// Prefer new React app (studio/dist) when built; fallback to legacy public
+// Prefer new React app (Nexus ORM/app/dist) when built; fallback to legacy public
 function getStudioPublicDir(): string {
-  const studioDist = path.join(process.cwd(), "studio", "dist")
-  if (fs.existsSync(studioDist)) return studioDist
+  const appDist = path.join(__dirname, "../app/dist")
+  if (fs.existsSync(appDist)) return appDist
   return path.join(__dirname, "../public")
 }
 
@@ -1597,6 +1601,145 @@ router.post("/api/settings", authenticateAdmin, (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to save settings",
+        })
+    }
+})
+
+// JSON replacer to serialize BigInt, Prisma Decimal, Date (PostgreSQL raw query returns these)
+function queryResultReplacer(_key: string, value: unknown): unknown {
+    if (typeof value === "bigint") return value.toString()
+    if (value instanceof Date) return value.toISOString()
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+        const o = value as Record<string, unknown>
+        // Prisma.Decimal - has toFixed, toJSON, toString, toNumber
+        if (typeof o.toFixed === "function") return (o as { toFixed: () => string }).toFixed()
+        if (typeof o.toJSON === "function") return (o as { toJSON: () => unknown }).toJSON()
+        if (typeof o.toNumber === "function") {
+            const n = (o as { toNumber: () => number }).toNumber()
+            if (Number.isFinite(n)) return n
+        }
+        if (typeof o.valueOf === "function") {
+            const v = (o as { valueOf: () => unknown }).valueOf()
+            if (typeof v === "number" && Number.isFinite(v)) return v
+            if (typeof v === "string") return v
+        }
+        if (typeof o.toString === "function") {
+            const str = (o as { toString: () => string }).toString()
+            if (str !== "[object Object]") return str
+        }
+    }
+    return value
+}
+
+// Raw SQL query endpoint
+router.post("/api/query", authenticateAdmin, async (req, res) => {
+    try {
+        const { sql } = req.body
+        if (!sql || typeof sql !== "string") {
+            return res.status(400).json({
+                success: false,
+                message: "SQL query string is required",
+            })
+        }
+        const trimmed = sql.trim()
+        if (!trimmed) {
+            return res.status(400).json({
+                success: false,
+                message: "SQL query cannot be empty",
+            })
+        }
+        const result = await prisma.$queryRawUnsafe(trimmed)
+        const json = JSON.stringify(
+            { success: true, data: result, rowCount: Array.isArray(result) ? result.length : 0 },
+            queryResultReplacer
+        )
+        res.setHeader("Content-Type", "application/json")
+        res.send(json)
+    } catch (error) {
+        console.error("SQL query error:", error)
+        res.status(500).json({
+            success: false,
+            message: "Query failed",
+            details: error instanceof Error ? error.message : "Unknown error",
+        })
+    }
+})
+
+// SQL scripts directory (project root / sql-scripts)
+const SQL_SCRIPTS_DIR = path.join(process.cwd(), "sql-scripts")
+
+function getSqlScriptsDir(): string {
+    if (!existsSync(SQL_SCRIPTS_DIR)) {
+        mkdirSync(SQL_SCRIPTS_DIR, { recursive: true })
+    }
+    return SQL_SCRIPTS_DIR
+}
+
+function sanitizeFilename(name: string): string {
+    return name.replace(/[^a-zA-Z0-9_.-]/g, "_")
+}
+
+// Save SQL script to server
+router.post("/api/query/save", authenticateAdmin, (req, res) => {
+    try {
+        const { name, sql } = req.body
+        if (!name || typeof name !== "string") {
+            return res.status(400).json({ success: false, message: "Script name is required" })
+        }
+        if (!sql || typeof sql !== "string") {
+            return res.status(400).json({ success: false, message: "SQL content is required" })
+        }
+        const safeName = sanitizeFilename(name.trim()) || "query"
+        const filename = safeName.endsWith(".sql") ? safeName : `${safeName}.sql`
+        const dir = getSqlScriptsDir()
+        const filePath = path.join(dir, filename)
+        writeFileSync(filePath, sql.trim(), "utf-8")
+        res.json({ success: true, message: "Script saved", path: filename })
+    } catch (error) {
+        console.error("SQL script save error:", error)
+        res.status(500).json({
+            success: false,
+            message: "Failed to save script",
+            details: error instanceof Error ? error.message : "Unknown error",
+        })
+    }
+})
+
+// List saved SQL scripts on server
+router.get("/api/query/scripts", authenticateAdmin, (req, res) => {
+    try {
+        const dir = getSqlScriptsDir()
+        const files = fs.readdirSync(dir)
+        const scripts = files
+            .filter((f) => f.endsWith(".sql"))
+            .map((f) => ({ name: f.replace(/\.sql$/i, ""), filename: f }))
+        res.json({ success: true, data: scripts })
+    } catch (error) {
+        console.error("SQL scripts list error:", error)
+        res.status(500).json({
+            success: false,
+            message: "Failed to list scripts",
+        })
+    }
+})
+
+// Get SQL script content from server
+router.get("/api/query/scripts/:filename", authenticateAdmin, (req, res) => {
+    try {
+        const { filename } = req.params
+        const safeName = sanitizeFilename(filename)
+        const withExt = safeName.endsWith(".sql") ? safeName : `${safeName}.sql`
+        const filePath = path.join(getSqlScriptsDir(), withExt)
+        if (!existsSync(filePath)) {
+            return res.status(404).json({ success: false, message: "Script not found" })
+        }
+        const content = readFileSync(filePath, "utf-8")
+        res.json({ success: true, data: { name: withExt.replace(/\.sql$/i, ""), sql: content } })
+    } catch (error) {
+        console.error("SQL script read error:", error)
+        res.status(500).json({
+            success: false,
+            message: "Failed to read script",
         })
     }
 })

@@ -8,7 +8,7 @@ node_modules/
 
 # Build output
 dist/
-studio/dist/
+Nexus ORM/app/dist/
 build/
 
 # Logs

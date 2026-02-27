@@ -9,10 +9,10 @@
     "db:migrate": "npx prisma migrate dev --name init",
     "db:studio": "npx prisma studio",
     "db:generate": "npx prisma generate",
-    "dev": "tsx watch src/server.ts",
+    "dev": "docker compose up -d && tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "studio:dev": "vite --config studio/vite.config.ts",
-    "studio:build": "vite build --config studio/vite.config.ts",
+    "studio:dev": "vite --config \"Nexus ORM/app/vite.config.ts\"",
+    "studio:build": "vite build --config \"Nexus ORM/app/vite.config.ts\"",
     "db:seed": "npx prisma db seed"
   },
   "devDependencies": {

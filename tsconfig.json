@@ -10,6 +10,6 @@
     "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "ufo-studio/**/*.ts"],
+  "include": ["src/**/*.ts", "Nexus ORM/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
