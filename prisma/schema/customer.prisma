@@ -1,0 +1,9 @@
+model Customer {
+  id             Int             @id @default(autoincrement())
+  accountNumber  String          @unique
+  name           String
+  billingAddress BillingAddress?
+  orders         Order[]
+
+  @@map("customers")
+}

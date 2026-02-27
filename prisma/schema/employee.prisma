@@ -1,0 +1,12 @@
+model Employee {
+  id       Int       @id @default(autoincrement())
+  ssn      String    @unique
+  name     String
+  address  String
+  phone    String
+  salary   Decimal   @db.Decimal(10, 2)
+  driver   Driver?
+  salesRep SalesRep?
+
+  @@map("employees")
+}

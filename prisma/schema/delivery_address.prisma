@@ -1,0 +1,11 @@
+model DeliveryAddress {
+  id      Int    @id @default(autoincrement())
+  street  String
+  city    String
+  state   String
+  zipCode String
+  orderId Int    @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  @@map("delivery_addresses")
+}

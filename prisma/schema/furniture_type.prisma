@@ -1,0 +1,10 @@
+model FurnitureType {
+  id             Int         @id @default(autoincrement())
+  itemCode       String      @unique
+  name           String
+  price          Decimal     @db.Decimal(10, 2)
+  quantityInStock Int
+  orderLines     OrderLine[]
+
+  @@map("furniture_types")
+}

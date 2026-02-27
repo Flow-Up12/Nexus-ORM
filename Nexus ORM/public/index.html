@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UFO Studio - Database Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .mobile-sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            .mobile-sidebar.open {
+                transform: translateX(0);
+            }
+        }
+
+        /* Smooth animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Field type badges */
+        .field-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .field-string { background: #10b981; color: white; }
+        .field-stringarray { background: #059669; color: white; }
+        .field-int { background: #ef4444; color: white; }
+        .field-intarray { background: #dc2626; color: white; }
+        .field-float { background: #f59e0b; color: white; }
+        .field-boolean { background: #8b5cf6; color: white; }
+        .field-datetime { background: #ec4899; color: white; }
+        .field-json { background: #06b6d4; color: white; }
+        .field-array { background: #0891b2; color: white; }
+        .field-relation { background: #6366f1; color: white; }
+        .field-enum { background: #8b5cf6; color: white; }
+        .field-enumarray { background: #7c3aed; color: white; }
+
+        /* Loading states */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Enhanced mobile navigation */
+        .mobile-nav-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 4px 0;
+            transition: all 0.2s ease;
+        }
+        .mobile-nav-item:hover {
+            background-color: #f3f4f6;
+        }
+        .mobile-nav-item.active {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    screens: {
+                        'xs': '475px',
+                    },
+                    spacing: {
+                        '18': '4.5rem',
+                        '88': '22rem',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    <div id="root"></div>
+    
+    <!-- Main App Script -->
+    <script src="/ufo-studio/js/app.js"></script>
+    
+    <!-- Component Scripts -->
+    <script src="/ufo-studio/js/components.js"></script>
+    <script src="/ufo-studio/js/ERDiagram.js"></script>
+    <script src="/ufo-studio/js/content-components.js"></script>
+    <script src="/ufo-studio/js/advanced-components.js"></script>
+    <script src="/ufo-studio/js/schema-components.js"></script>
+    
+    <!-- Global Component Registration -->
+    <script>
+        // Ensure global component objects are available
+        if (!window.AdvancedComponents) {
+            window.AdvancedComponents = {};
+        }
+        if (!window.SchemaComponents) {
+            window.SchemaComponents = {};
+        }
+        if (!window.ContentComponents) {
+            window.ContentComponents = {};
+        }
+        
+        // Global utility functions
+        window.getAuthHeaders = () => {
+            const token = localStorage.getItem('ufoStudioToken');
+            return token ? { 'Authorization': 'Bearer ' + token } : {};
+        };
+        
+        window.getFieldType = (field, schema) => {
+            const type = field.type;
+            
+            // Check for explicit @relation first
+            if (type.includes('@relation')) {
+                return 'relation';
+            }
+            
+            // Extract base type (remove [], ?, and other modifiers)
+            const baseType = type.split(' ')[0].replace('[]', '').replace('?', '');
+            const isArray = type.includes('[]');
+            
+            // Get model names and enum names for detection (case-sensitive)
+            const modelNames = schema?.parsed?.models?.map(m => m.name) || [];
+            const enumNames = schema?.parsed?.enums?.map(e => e.name) || [];
+            
+            // Check if it's an enum field
+            if (enumNames.includes(baseType)) {
+                return isArray ? 'enumarray' : 'enum';
+            }
+            
+            // Check if it's a model relation (references another model)
+            if (modelNames.includes(baseType)) {
+                return 'relation';
+            }
+            
+            // Check for arrays of basic types
+            if (isArray) {
+                const lowerBaseType = baseType.toLowerCase();
+                if (lowerBaseType === 'string') return 'stringarray';
+                if (lowerBaseType === 'int') return 'intarray';
+                return 'array';
+            }
+            
+            // Check for basic types
+            const lowerBaseType = baseType.toLowerCase();
+            if (lowerBaseType === 'string') return 'string';
+            if (lowerBaseType === 'int') return 'int';
+            if (lowerBaseType === 'float' || lowerBaseType === 'decimal') return 'float';
+            if (lowerBaseType === 'boolean') return 'boolean';
+            if (lowerBaseType === 'datetime') return 'datetime';
+            if (lowerBaseType === 'json') return 'json';
+            
+            return 'string';
+        };
+        
+        window.isPrimaryKey = (field) => field.type.includes('@id');
+        window.isRequired = (field) => !field.type.includes('?');
+        window.isUnique = (field) => field.type.includes('@unique');
+    </script>
+    
+    <!-- App Initialization -->
+    <script>
+        // Wait for all scripts to load before initializing
+        function initializeApp() {
+            // console.log('Initializing app...');
+            // console.log('React available:', !!window.React);
+            // console.log('ReactDOM available:', !!window.ReactDOM);
+            // console.log('Components loaded:', {
+            //     Components: window.Components,
+            //     ContentComponents: window.ContentComponents,
+            //     AdvancedComponents: window.AdvancedComponents,
+            //     SchemaComponents: window.SchemaComponents
+            // });
+            
+            // Check if essential components are available
+            if (!window.React || !window.ReactDOM) {
+                console.error('React or ReactDOM not loaded!');
+                return;
+            }
+            
+            // Try again in a moment if components aren't loaded yet
+            if (!window.Components || !window.ContentComponents || !window.SchemaComponents) {
+                console.log('Components not fully loaded yet, retrying in 100ms...');
+                setTimeout(initializeApp, 100);
+                return;
+            }
+            
+            // console.log('All components loaded successfully, starting app...');
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Give a small delay to ensure all scripts are loaded
+            setTimeout(initializeApp, 50);
+        });
+    </script>
+</body>
+</html> 

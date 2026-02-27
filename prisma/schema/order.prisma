@@ -1,0 +1,15 @@
+model Order {
+  id              Int              @id @default(autoincrement())
+  orderDate       DateTime         @default(now())
+  totalValue      Decimal          @db.Decimal(10, 2)
+  deliveryFee     Decimal          @default(0) @db.Decimal(10, 2)
+  customerId      Int
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  salesRepId      Int
+  salesRep        SalesRep         @relation(fields: [salesRepId], references: [id])
+  deliveryAddress DeliveryAddress?
+  orderLines      OrderLine[]
+  shipments       Shipment[]
+
+  @@map("orders")
+}

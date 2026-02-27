@@ -1,0 +1,11 @@
+model BillingAddress {
+  id         Int      @id @default(autoincrement())
+  street     String
+  city       String
+  state      String
+  zipCode    String
+  customerId Int     @unique
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  @@map("billing_addresses")
+}

@@ -1,0 +1,12 @@
+model OrderLine {
+  id              Int           @id @default(autoincrement())
+  quantity        Int
+  unitPrice       Decimal       @db.Decimal(10, 2)
+  orderId         Int
+  order           Order         @relation(fields: [orderId], references: [id])
+  furnitureTypeId Int
+  furnitureType   FurnitureType @relation(fields: [furnitureTypeId], references: [id])
+
+  @@unique([orderId, furnitureTypeId])
+  @@map("order_lines")
+}

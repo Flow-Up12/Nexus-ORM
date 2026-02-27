@@ -1,0 +1,10 @@
+model Driver {
+  id                    Int      @id @default(autoincrement())
+  licenseNumber         String   @unique
+  licenseExpirationDate DateTime
+  employeeId            Int      @unique
+  employee              Employee @relation(fields: [employeeId], references: [id])
+  trucks                Truck[]
+
+  @@map("drivers")
+}

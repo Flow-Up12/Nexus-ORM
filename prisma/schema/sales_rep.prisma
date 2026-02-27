@@ -1,0 +1,9 @@
+model SalesRep {
+  id             Int      @id @default(autoincrement())
+  commissionRate Decimal  @db.Decimal(5, 2)
+  employeeId     Int      @unique
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  orders         Order[]
+
+  @@map("sales_reps")
+}

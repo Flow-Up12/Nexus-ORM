@@ -1,0 +1,10 @@
+model Shipment {
+  id           Int      @id @default(autoincrement())
+  shipmentDate DateTime
+  orderId      Int
+  order        Order    @relation(fields: [orderId], references: [id])
+  truckId      Int
+  truck        Truck    @relation(fields: [truckId], references: [id])
+
+  @@map("shipments")
+}
