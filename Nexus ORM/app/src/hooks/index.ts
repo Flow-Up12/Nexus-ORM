@@ -1,2 +1,5 @@
 export { useSchema } from './useSchema'
 export { useMutationWithToast } from './useMutationWithToast'
+export { useCollaboration } from './useCollaboration'
+export { useLiveSchema } from './useLiveSchema'
+export { useFileSync } from './useFileSync'

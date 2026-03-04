@@ -18,6 +18,14 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/yjs': {
+        target: 'ws://localhost:3001',
+        ws: true,
+      },
+      '/file-sync': {
+        target: 'ws://localhost:3001',
+        ws: true,
+      },
     },
   },
   build: {

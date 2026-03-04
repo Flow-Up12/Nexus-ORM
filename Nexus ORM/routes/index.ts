@@ -365,9 +365,7 @@ router.get("/api/schema/models", authenticateAdmin, (req, res) => {
                 const modelMatch = line.match(/^model\s+(\w+)\s*\{/)
                 if (modelMatch) {
                     const modelName = modelMatch[1]
-                    const workspaceRoot = path.join(__dirname, "../../../../../")
-                    const relativePath = path.relative(workspaceRoot, file)
-                    modelFiles[modelName] = relativePath
+                    modelFiles[modelName] = path.relative(process.cwd(), file)
                 }
             }
         }
@@ -746,6 +744,138 @@ router.post("/api/schema/raw", authenticateAdmin, (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to save schema",
+            error: (error as Error).message,
+        })
+    }
+})
+
+// List all schema files
+router.get("/api/schema/files", authenticateAdmin, (req, res) => {
+    try {
+        const baseDir = getSchemaDir()
+        const files = getAllPrismaFiles(baseDir)
+        const data = files.map((f) => ({
+            path: path.relative(process.cwd(), f),
+            name: path.basename(f),
+        }))
+        res.json({ success: true, data })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to list schema files",
+            error: (error as Error).message,
+        })
+    }
+})
+
+// Get all schema files with contents
+router.get("/api/schema/files/contents", authenticateAdmin, (req, res) => {
+    try {
+        const baseDir = getSchemaDir()
+        const files = getAllPrismaFiles(baseDir)
+        const data = {
+            files: files.map((f) => ({
+                path: path.relative(process.cwd(), f),
+                name: path.basename(f),
+                content: fs.readFileSync(f, "utf-8"),
+            })),
+        }
+        res.json({ success: true, data })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to read schema files",
+            error: (error as Error).message,
+        })
+    }
+})
+
+// Get a specific schema file
+router.get("/api/schema/file", authenticateAdmin, (req, res) => {
+    try {
+        const filePath = req.query.path as string
+        if (!filePath) {
+            return res.status(400).json({ success: false, message: "path query parameter is required" })
+        }
+        const absolutePath = path.resolve(process.cwd(), filePath)
+        const schemaDir = path.resolve(getSchemaDir())
+        if (!absolutePath.startsWith(schemaDir)) {
+            return res.status(403).json({ success: false, message: "Access denied" })
+        }
+        if (!fs.existsSync(absolutePath)) {
+            return res.status(404).json({ success: false, message: "File not found" })
+        }
+        const content = fs.readFileSync(absolutePath, "utf-8")
+        res.json({ success: true, content })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to read file",
+            error: (error as Error).message,
+        })
+    }
+})
+
+// Save a specific schema file
+router.post("/api/schema/file", authenticateAdmin, (req, res) => {
+    try {
+        const { path: filePath, content } = req.body
+        if (!filePath || typeof content !== "string") {
+            return res.status(400).json({ success: false, message: "path and content are required" })
+        }
+        const absolutePath = path.resolve(process.cwd(), filePath)
+        const schemaDir = path.resolve(getSchemaDir())
+        if (!absolutePath.startsWith(schemaDir)) {
+            return res.status(403).json({ success: false, message: "Access denied" })
+        }
+        const dir = path.dirname(absolutePath)
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true })
+        }
+        writeFileSync(absolutePath, content, "utf-8")
+        res.json({ success: true, message: "File saved" })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to save file",
+            error: (error as Error).message,
+        })
+    }
+})
+
+// Parse schema content
+router.post("/api/schema/parse", authenticateAdmin, (req, res) => {
+    try {
+        const { content } = req.body
+        if (!content || typeof content !== "string") {
+            return res.status(400).json({ success: false, message: "content is required" })
+        }
+        const parsed = parseSchema(content)
+        res.json({ success: true, data: parsed })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to parse schema",
+            error: (error as Error).message,
+        })
+    }
+})
+
+// Validate schema
+router.post("/api/schema/validate", authenticateAdmin, async (req, res) => {
+    try {
+        const execAsync = promisify(exec)
+        const schemaPath = getSchemaDir()
+        try {
+            await execAsync(`npx prisma validate --schema="${schemaPath}"`, { cwd: process.cwd() })
+            res.json({ valid: true })
+        } catch (error: any) {
+            res.json({ valid: false, errors: error.stderr || error.stdout || error.message })
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Validation failed",
             error: (error as Error).message,
         })
     }

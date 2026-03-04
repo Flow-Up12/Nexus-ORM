@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   Database,
-  LayoutGrid,
   FileCode,
   GitBranch,
   ChevronDown,
@@ -58,8 +57,7 @@ export function Layout() {
     : enums
 
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutGrid },
-    { path: '/schema/overview', label: 'Full Schema ER Diagram', icon: GitBranch },
+    { path: '/schema/canvas', label: 'Full Schema ER Diagram', icon: GitBranch },
     { path: '/schema/editor', label: 'Schema Editor', icon: FileCode },
     { path: '/query', label: 'SQL Playground', icon: Terminal },
     { path: '/create/model', label: 'Create Model', icon: Plus },
@@ -111,7 +109,7 @@ export function Layout() {
         )}
 
         <nav className={`flex-1 overflow-y-auto p-4 space-y-1 ${sidebarCollapsed ? 'p-2' : ''}`}>
-          {navItems.slice(0, 4).map(({ path, label, icon: Icon }) => (
+          {navItems.slice(0, 3).map(({ path, label, icon: Icon }) => (
             <Link
               key={path}
               to={path}

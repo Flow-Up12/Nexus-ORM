@@ -7,6 +7,15 @@ import { useTheme } from '@/context/ThemeContext'
 interface FullSchemaERDiagramProps {
   schema: { parsed: { models: ParsedModel[] } }
   height?: string
+  onModelClick?: (modelName: string) => void
+  remoteModelPositions?: Record<string, { x: number; y: number }> | null
+  onModelPositionsChange?: (positions: Record<string, { x: number; y: number }>) => void
+}
+
+interface TooltipData {
+  x: number
+  y: number
+  content: React.ReactNode
 }
 
 function isModelReference(field: { type: string }, modelNames: string[]): boolean {
@@ -18,7 +27,7 @@ function getRelatedModelName(field: { type: string }): string {
   return field.type.split(' ')[0].replace('[]', '').replace('?', '')
 }
 
-export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDiagramProps) {
+export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, remoteModelPositions, onModelPositionsChange }: FullSchemaERDiagramProps) {
   const navigate = useNavigate()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -35,30 +44,45 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
     model: string | null
     offset: { x: number; y: number }
   }>({ isDragging: false, model: null, offset: { x: 0, y: 0 } })
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const relationships = useMemo((): Relationship[] => {
     const modelNames = models.map((m) => m.name)
-    const rels: Relationship[] = []
+    const modelMap = new Map(models.map((m) => [m.name, m]))
+    const relsByPair = new Map<string, Relationship>()
     models.forEach((model) => {
       model.fields?.forEach((field) => {
         if (field.type.includes('@relation') || isModelReference(field, modelNames)) {
           const targetModel = getRelatedModelName(field)
           if (targetModel && modelNames.includes(targetModel)) {
-            rels.push({
+            const pairKey = [model.name, targetModel].sort().join('|')
+            const isArray = field.type.includes('[]')
+            const isOptional = field.type.includes('?')
+            const targetModelObj = modelMap.get(targetModel)
+            const inverseField = targetModelObj?.fields?.find(
+              (f) => getRelatedModelName(f) === model.name && (f.type.includes('@relation') || isModelReference(f, modelNames))
+            )
+            const isOptionalOnTo = inverseField?.type.includes('?') ?? false
+            const rel: Relationship = {
               from: model.name,
               to: targetModel,
               field: field.name,
-              type: field.type.includes('[]') ? 'one-to-many' : 'one-to-one',
-              isArray: field.type.includes('[]'),
-              isOptional: field.type.includes('?'),
-            })
+              type: isArray ? 'one-to-many' : 'one-to-one',
+              isArray,
+              isOptional,
+              isOptionalOnTo,
+            }
+            const existing = relsByPair.get(pairKey)
+            if (!existing || (isArray && !existing.isArray)) {
+              relsByPair.set(pairKey, rel)
+            }
           }
         }
       })
     })
-    return rels
+    return Array.from(relsByPair.values())
   }, [models])
 
   const calculateInitialPositions = useCallback(() => {
@@ -84,6 +108,11 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
   }, [models])
 
   useEffect(() => {
+    if (dragState.isDragging) return
+    if (remoteModelPositions && Object.keys(remoteModelPositions).length > 0 && models.every((m) => remoteModelPositions[m.name])) {
+      setModelPositions(remoteModelPositions)
+      return
+    }
     const saved = localStorage.getItem('ufoStudioErDiagramPositions')
     if (saved) {
       try {
@@ -98,11 +127,13 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
       }
     }
     setModelPositions(calculateInitialPositions())
-  }, [models, calculateInitialPositions])
+  }, [models, calculateInitialPositions, remoteModelPositions, dragState.isDragging])
 
+  const lastDragPositionsRef = useRef<Record<string, { x: number; y: number }>>({})
   useEffect(() => {
     if (Object.keys(modelPositions).length > 0) {
       localStorage.setItem('ufoStudioErDiagramPositions', JSON.stringify(modelPositions))
+      lastDragPositionsRef.current = modelPositions
     }
   }, [modelPositions])
 
@@ -135,13 +166,17 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
         const rect = svgRef.current.getBoundingClientRect()
         const x = (e.clientX - rect.left - pan.x) / zoom
         const y = (e.clientY - rect.top - pan.y) / zoom
-        setModelPositions((prev) => ({
-          ...prev,
-          [dragState.model!]: {
-            x: x - dragState.offset.x,
-            y: y - dragState.offset.y,
-          },
-        }))
+        setModelPositions((prev) => {
+          const next = {
+            ...prev,
+            [dragState.model!]: {
+              x: x - dragState.offset.x,
+              y: y - dragState.offset.y,
+            },
+          }
+          lastDragPositionsRef.current = next
+          return next
+        })
       } else if (isPanning) {
         const currentX = e.clientX - (svgRef.current?.getBoundingClientRect().left ?? 0)
         const currentY = e.clientY - (svgRef.current?.getBoundingClientRect().top ?? 0)
@@ -155,9 +190,13 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
   )
 
   const handleMouseUp = useCallback(() => {
+    const wasDragging = dragState.isDragging
     setDragState({ isDragging: false, model: null, offset: { x: 0, y: 0 } })
     setIsPanning(false)
-  }, [])
+    if (wasDragging && Object.keys(lastDragPositionsRef.current).length > 0) {
+      onModelPositionsChange?.(lastDragPositionsRef.current)
+    }
+  }, [dragState.isDragging, onModelPositionsChange])
 
   useEffect(() => {
     if (dragState.isDragging || isPanning) {
@@ -194,17 +233,59 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
     const prongLen = 8
     const spread = 4
 
+    const toOptional = rel.isOptionalOnTo ?? rel.isOptional
+    const cardinalityLabel = rel.isArray
+      ? `One ${rel.from} has zero or more ${rel.to}s`
+      : `One ${rel.from} has one ${rel.to}`
+    const optionalLabel = toOptional ? ' (optional on ' + rel.to + ')' : ' (required)'
+
+    const handleRelHover = (e: React.MouseEvent) => {
+      setTooltip({
+        x: e.clientX + 12,
+        y: e.clientY - 8,
+        content: (
+          <div>
+            <p className="font-semibold">{rel.from} → {rel.to}</p>
+            <p className="text-slate-400 mt-0.5">via field: <span className="text-indigo-400">{rel.field}</span></p>
+            <p className="mt-1">{cardinalityLabel}{optionalLabel}</p>
+            <p className="text-slate-500 mt-1 text-[10px]">
+              {rel.isArray
+                ? (toOptional ? 'o|--o{' : '||--o{')
+                : rel.isOptional
+                  ? '||--o|'
+                  : '||--|{'} in Crow&apos;s Foot notation
+            </p>
+          </div>
+        ),
+      })
+    }
+
     return (
-      <g key={`${rel.from}-${rel.to}-${rel.field}`} className="cursor-pointer">
+      <g
+        key={`${rel.from}-${rel.to}-${rel.field}`}
+        className="cursor-pointer"
+        onMouseEnter={handleRelHover}
+        onMouseMove={handleRelHover}
+        onMouseLeave={() => setTooltip(null)}
+      >
         <line
           x1={startX}
           y1={startY}
           x2={endX}
           y2={endY}
-          stroke={strokeColor}
-          strokeWidth={2}
-          strokeDasharray={rel.isOptional ? '5,5' : undefined}
-          className="hover:stroke-indigo-600 transition-colors"
+          stroke="transparent"
+          strokeWidth={12}
+          className="pointer-events-auto"
+        />
+        <line
+          x1={startX}
+          y1={startY}
+          x2={endX}
+          y2={endY}
+        stroke={strokeColor}
+        strokeWidth={2}
+        strokeDasharray={toOptional ? '5,5' : undefined}
+          className="hover:stroke-indigo-600 transition-colors pointer-events-none"
         />
         {rel.isArray ? (
           <path
@@ -226,8 +307,14 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
             strokeLinecap="round"
           />
         )}
-        {rel.isOptional && (
+        {rel.isArray && (
           <circle cx={startX} cy={startY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />
+        )}
+        {!rel.isArray && rel.isOptional && (
+          <circle cx={startX} cy={startY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />
+        )}
+        {toOptional && (
+          <circle cx={endX} cy={endY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />
         )}
         {rel.isArray ? (
           <line
@@ -277,13 +364,46 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
     const boxHeight = Math.max(100, 60 + Math.min(fieldCount, 8) * 16)
     const boxWidth = Math.max(180, model.name.length * 10 + 60)
 
+    const relCount = relationships.filter((r) => r.from === model.name || r.to === model.name).length
+    const pkFields = model.fields?.filter((f) => f.type.includes('@id')) ?? []
+    const fkFields = model.fields?.filter((f) =>
+      f.name.endsWith('Id') && model.fields?.some(
+        (of) => of.name === f.name.replace(/Id$/, '') && models.some((m) => m.name === of.type.split(' ')[0].replace('[]', '').replace('?', ''))
+      )
+    ) ?? []
+
+    const handleModelHover = (e: React.MouseEvent) => {
+      if (dragState.isDragging) return
+      setTooltip({
+        x: e.clientX + 12,
+        y: e.clientY - 8,
+        content: (
+          <div>
+            <p className="font-semibold text-sm">{model.name}</p>
+            <p className="text-slate-400 mt-1">{fieldCount} fields · {relCount} relationships</p>
+            {pkFields.length > 0 && (
+              <p className="mt-1">Primary key: <span className="text-indigo-400">{pkFields.map((f) => f.name).join(', ')}</span></p>
+            )}
+            {fkFields.length > 0 && (
+              <p>Foreign keys: <span className="text-amber-400">{fkFields.map((f) => f.name).join(', ')}</span></p>
+            )}
+            <p className="text-slate-500 mt-1 text-[10px]">Double-click to view data · Drag to reposition</p>
+          </div>
+        ),
+      })
+    }
+
     return (
       <g
         key={model.name}
         className="model-group cursor-pointer"
         transform={`translate(${pos.x}, ${pos.y})`}
+        onMouseEnter={handleModelHover}
+        onMouseMove={handleModelHover}
+        onMouseLeave={() => setTooltip(null)}
         onMouseDown={(e) => {
           e.stopPropagation()
+          setTooltip(null)
           setDragState({
             isDragging: true,
             model: model.name,
@@ -296,6 +416,7 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
         onClick={(e) => {
           e.stopPropagation()
           setSelectedModel(model.name)
+          onModelClick?.(model.name)
         }}
         onDoubleClick={() => navigate(`/model/${model.name}/data`)}
       >
@@ -382,8 +503,8 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
   const svgBg = isDark ? 'from-slate-800 to-slate-900' : 'from-slate-50 to-slate-100'
 
   return (
-    <div ref={containerRef} className="relative border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden" style={{ height }}>
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
+    <div ref={containerRef} className="relative overflow-hidden" style={{ height }}>
+      <div className="absolute top-20 left-4 z-10 flex gap-2">
         <div className="flex rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
           <button
             onClick={() => setZoom((z) => Math.max(0.1, z / 1.2))}
@@ -458,13 +579,30 @@ export function FullSchemaERDiagram({ schema, height = '600px' }: FullSchemaERDi
       {showHelp && (
         <div className="absolute bottom-20 right-4 z-10 bg-white dark:bg-slate-800 rounded-lg shadow-lg px-4 py-3 border border-slate-200 dark:border-slate-600 max-w-xs text-xs text-slate-600 dark:text-slate-400">
           <p className="font-medium text-slate-900 dark:text-slate-100 mb-2">Crow&apos;s Foot Notation</p>
-          <p>| = One</p>
-          <p>⋈ = Many</p>
-          <p>○ = Optional</p>
+          <p><span className="font-mono">|</span> = One (exactly one)</p>
+          <p><span className="font-mono">⋈</span> = Many (zero or more)</p>
+          <p><span className="font-mono">○</span> = Optional (zero or one)</p>
+          <p className="mt-2 text-slate-500">Dashed lines indicate optional relationships</p>
+          <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">Keys</p>
+          <p><span className="text-indigo-500 font-medium">PK</span> = Primary Key (unique identifier)</p>
+          <p><span className="text-amber-500 font-medium">FK</span> = Foreign Key (references another table)</p>
           <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">Controls</p>
+          <p>Hover → see relationship details</p>
           <p>Double-click model → view structure</p>
-          <p>Drag background → pan</p>
-          <p>Scroll → zoom</p>
+          <p>Drag model → reposition</p>
+          <p>Drag background → pan canvas</p>
+          <p>Scroll → zoom in/out</p>
+        </div>
+      )}
+
+      {tooltip && (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          <div className="bg-slate-900 text-slate-200 rounded-lg shadow-xl px-3 py-2 text-xs max-w-xs border border-slate-700">
+            {tooltip.content}
+          </div>
         </div>
       )}
     </div>

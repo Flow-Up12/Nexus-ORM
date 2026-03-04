@@ -30,4 +30,6 @@ export interface Relationship {
   type: string
   isArray: boolean
   isOptional: boolean
+  /** Whether the inverse relation (on the "to" model) is optional. E.g. Student.university University? */
+  isOptionalOnTo?: boolean
 }

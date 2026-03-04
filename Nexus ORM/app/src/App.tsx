@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { Dashboard } from '@/pages/Dashboard'
-import { FullSchemaDiagram } from '@/pages/FullSchemaDiagram'
+import { SchemaCanvasPage } from '@/pages/SchemaCanvasPage'
 import { SchemaEditor } from '@/pages/SchemaEditor'
 import { ModelLayout } from '@/pages/ModelLayout'
 import { ModelStructure } from '@/pages/ModelStructure'
@@ -46,13 +45,18 @@ function App() {
       <BrowserRouter basename="/ufo-studio">
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/schema/canvas" element={
+          <AuthGuard>
+            <SchemaCanvasPage />
+          </AuthGuard>
+        } />
         <Route path="/" element={
           <AuthGuard>
             <Layout />
           </AuthGuard>
         }>
-          <Route index element={<Dashboard />} />
-          <Route path="schema/overview" element={<FullSchemaDiagram />} />
+          <Route index element={<Navigate to="/schema/canvas" replace />} />
+          <Route path="schema/overview" element={<Navigate to="/schema/canvas" replace />} />
           <Route path="schema/editor" element={<SchemaEditor />} />
           <Route path="model/:modelName" element={<ModelLayout />}>
             <Route index element={<Navigate to="data" replace />} />
@@ -69,7 +73,7 @@ function App() {
           <Route path="create/enum" element={<CreateEnumForm />} />
           <Route path="settings" element={<Settings />} />
           <Route path="query" element={<SqlPlayground />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/schema/canvas" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

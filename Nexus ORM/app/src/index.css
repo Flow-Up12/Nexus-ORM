@@ -86,3 +86,17 @@
   from { width: 0; }
   to { width: 100%; }
 }
+
+/* Remote cursor and selection - base styles, colors injected per-user */
+.remote-cursor,
+[class^="remote-cursor-"] {
+  border-left: 2px solid;
+  margin-left: -1px;
+  pointer-events: none;
+  display: inline-block;
+  width: 0;
+}
+.remote-selection,
+[class^="remote-selection-"] {
+  pointer-events: none;
+}
