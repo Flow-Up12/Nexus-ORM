@@ -167,23 +167,88 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
     }
   }, [dragState.isDragging, isPanning, handleMouseMove, handleMouseUp])
 
+  const FIRST_ROW_TOP = 55
+  const ROW_HEIGHT = 16
+
+  const getFieldAnchor = useCallback(
+    (
+      modelName: string,
+      fieldName: string | undefined,
+      modelPos: { x: number; y: number },
+      targetPos: { x: number; y: number }
+    ): { x: number; y: number } => {
+      const model = models.find((m) => m.name === modelName)
+      if (!model || !fieldName) return modelPos
+
+      const boxWidth = Math.max(180, model.name.length * 10 + 60)
+      const boxHeight = Math.max(100, 60 + Math.min(model.fields?.length ?? 0, 8) * ROW_HEIGHT)
+      const fieldIndex = model.fields?.findIndex((f) => f.name === fieldName) ?? -1
+
+      const rowY =
+        fieldIndex >= 0
+          ? modelPos.y - boxHeight / 2 + FIRST_ROW_TOP + fieldIndex * ROW_HEIGHT + ROW_HEIGHT / 2
+          : modelPos.y
+
+      const left = modelPos.x - boxWidth / 2
+      const right = modelPos.x + boxWidth / 2
+      const top = modelPos.y - boxHeight / 2
+      const bottom = modelPos.y + boxHeight / 2
+
+      const dx = targetPos.x - modelPos.x
+      const dy = targetPos.y - rowY
+
+      if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: modelPos.x, y: rowY }
+
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        return { x: dx > 0 ? right : left, y: rowY }
+      }
+      return { x: modelPos.x, y: dy > 0 ? bottom : top }
+    },
+    [models]
+  )
+
   const renderRelationship = (rel: NormalizedRelation) => {
     const fromPos = modelPositions[rel.fromModel]
     const toPos = modelPositions[rel.toModel]
     if (!fromPos || !toPos) return null
 
-    const dx = toPos.x - fromPos.x
-    const dy = toPos.y - fromPos.y
+    const pkModel = rel.pkModel ?? rel.fromModel
+    const fkModel = rel.fkModel ?? rel.toModel
+    const pkFieldName = rel.pkFieldName ?? 'id'
+    const fkFieldName = rel.fkFieldName ?? rel.fkField
+
+    const useFieldAnchors = rel.fkModel && rel.pkModel && fkFieldName
+
+    const pkPos = modelPositions[pkModel]
+    const fkPos = modelPositions[fkModel]
+    if (!pkPos || !fkPos) return null
+
+    const dirX = toPos.x - fromPos.x
+    const dirY = toPos.y - fromPos.y
+    const fallbackDist = Math.sqrt(dirX * dirX + dirY * dirY) || 1
+    const uxFallback = dirX / fallbackDist
+    const uyFallback = dirY / fallbackDist
+    const boxSize = 75
+
+    const startPos = useFieldAnchors
+      ? getFieldAnchor(pkModel, pkFieldName, pkPos, fkPos)
+      : { x: fromPos.x + uxFallback * boxSize, y: fromPos.y + uyFallback * boxSize }
+    const endPos = useFieldAnchors
+      ? getFieldAnchor(fkModel, fkFieldName, fkPos, pkPos)
+      : { x: toPos.x - uxFallback * boxSize, y: toPos.y - uyFallback * boxSize }
+
+    const startX = startPos.x
+    const startY = startPos.y
+    const endX = endPos.x
+    const endY = endPos.y
+
+    const dx = endX - startX
+    const dy = endY - startY
     const dist = Math.sqrt(dx * dx + dy * dy)
     if (dist === 0) return null
 
     const ux = dx / dist
     const uy = dy / dist
-    const boxSize = 75
-    const startX = fromPos.x + ux * boxSize
-    const startY = fromPos.y + uy * boxSize
-    const endX = toPos.x - ux * boxSize
-    const endY = toPos.y - uy * boxSize
 
     const { fromEnd, toEnd } = rel
     const strokeColor = fromEnd.min === 0 || toEnd.min === 0 ? '#94a3b8' : '#4f46e5'

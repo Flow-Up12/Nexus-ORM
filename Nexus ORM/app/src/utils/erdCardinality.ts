@@ -45,6 +45,14 @@ export interface NormalizedRelation {
   inverseField?: string
   fkField?: string
   relationName?: string
+  /** Model that has the FK (child side); for m:n may be undefined */
+  fkModel?: string
+  /** Model that has the referenced PK (parent side) */
+  pkModel?: string
+  /** FK field name for line anchoring */
+  fkFieldName?: string
+  /** Referenced PK field name for line anchoring */
+  pkFieldName?: string
 }
 
 function isModelReference(field: ParsedField, modelNames: string[]): boolean {
@@ -59,6 +67,16 @@ function getRelatedModelName(field: ParsedField): string {
 function getFkFieldForRelation(model: ParsedModel, relationFieldName: string): ParsedField | undefined {
   const fkName = relationFieldName + 'Id'
   return model.fields?.find((f) => f.name === fkName)
+}
+
+/** Parse @relation(fields: [x], references: [y]) from type string */
+function parseRelationFields(type: string): { fkField: string; pkField: string } | null {
+  const fieldsMatch = type.match(/fields:\s*\[([^\]]+)\]/)
+  const refsMatch = type.match(/references:\s*\[([^\]]+)\]/)
+  if (!fieldsMatch || !refsMatch) return null
+  const fkField = fieldsMatch[1].split(',')[0].trim()
+  const pkField = refsMatch[1].split(',')[0].trim()
+  return fkField && pkField ? { fkField, pkField } : null
 }
 
 function hasUniqueConstraint(field: ParsedField): boolean {
@@ -145,6 +163,36 @@ export function parseRelations(models: ParsedModel[]): NormalizedRelation[] {
       const fkField = getFkFieldForRelation(model, field.name)
       const inverseFk = inverseField ? getFkFieldForRelation(targetModelObj!, inverseField.name) : undefined
 
+      let fkModel: string | undefined
+      let pkModel: string | undefined
+      let fkFieldName: string | undefined
+      let pkFieldName: string | undefined
+
+      const parsedFrom = parseRelationFields(field.type)
+      const parsedInverse = inverseField ? parseRelationFields(inverseField.type) : null
+
+      if (parsedFrom) {
+        fkModel = model.name
+        pkModel = targetModel
+        fkFieldName = parsedFrom.fkField
+        pkFieldName = parsedFrom.pkField
+      } else if (parsedInverse) {
+        fkModel = targetModel
+        pkModel = model.name
+        fkFieldName = parsedInverse.fkField
+        pkFieldName = parsedInverse.pkField
+      } else {
+        fkFieldName = fkField?.name ?? inverseFk?.name
+        pkFieldName = 'id'
+        if (fkField) {
+          fkModel = model.name
+          pkModel = targetModel
+        } else if (inverseFk) {
+          fkModel = targetModel
+          pkModel = model.name
+        }
+      }
+
       result.push({
         fromModel: model.name,
         toModel: targetModel,
@@ -153,6 +201,10 @@ export function parseRelations(models: ParsedModel[]): NormalizedRelation[] {
         field: field.name,
         inverseField: inverseField?.name,
         fkField: fkField?.name ?? inverseFk?.name,
+        fkModel,
+        pkModel,
+        fkFieldName,
+        pkFieldName,
       })
     })
   })
