@@ -32,4 +32,7 @@ export interface Relationship {
   isOptional: boolean
   /** Whether the inverse relation (on the "to" model) is optional. E.g. Student.university University? */
   isOptionalOnTo?: boolean
+  /** Crow's Foot: per-end cardinality (min, max) */
+  fromEnd?: { min: 0 | 1; max: 1 | 'many' }
+  toEnd?: { min: 0 | 1; max: 1 | 'many' }
 }

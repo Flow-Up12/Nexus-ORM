@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ParsedModel, Relationship } from '@/types/schema'
+import type { ParsedModel } from '@/types/schema'
+import type { NormalizedRelation } from '@/utils/erdCardinality'
+import { parseRelations, toCrowsFootString } from '@/utils/erdCardinality'
 import { ZoomIn, ZoomOut, Maximize2, Grid3X3, Home, HelpCircle } from 'lucide-react'
 import { useTheme } from '@/context/ThemeContext'
 
@@ -16,15 +18,6 @@ interface TooltipData {
   x: number
   y: number
   content: React.ReactNode
-}
-
-function isModelReference(field: { type: string }, modelNames: string[]): boolean {
-  const baseType = field.type.split(' ')[0].replace('[]', '').replace('?', '')
-  return modelNames.includes(baseType)
-}
-
-function getRelatedModelName(field: { type: string }): string {
-  return field.type.split(' ')[0].replace('[]', '').replace('?', '')
 }
 
 export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, remoteModelPositions, onModelPositionsChange }: FullSchemaERDiagramProps) {
@@ -48,42 +41,7 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const relationships = useMemo((): Relationship[] => {
-    const modelNames = models.map((m) => m.name)
-    const modelMap = new Map(models.map((m) => [m.name, m]))
-    const relsByPair = new Map<string, Relationship>()
-    models.forEach((model) => {
-      model.fields?.forEach((field) => {
-        if (field.type.includes('@relation') || isModelReference(field, modelNames)) {
-          const targetModel = getRelatedModelName(field)
-          if (targetModel && modelNames.includes(targetModel)) {
-            const pairKey = [model.name, targetModel].sort().join('|')
-            const isArray = field.type.includes('[]')
-            const isOptional = field.type.includes('?')
-            const targetModelObj = modelMap.get(targetModel)
-            const inverseField = targetModelObj?.fields?.find(
-              (f) => getRelatedModelName(f) === model.name && (f.type.includes('@relation') || isModelReference(f, modelNames))
-            )
-            const isOptionalOnTo = inverseField?.type.includes('?') ?? false
-            const rel: Relationship = {
-              from: model.name,
-              to: targetModel,
-              field: field.name,
-              type: isArray ? 'one-to-many' : 'one-to-one',
-              isArray,
-              isOptional,
-              isOptionalOnTo,
-            }
-            const existing = relsByPair.get(pairKey)
-            if (!existing || (isArray && !existing.isArray)) {
-              relsByPair.set(pairKey, rel)
-            }
-          }
-        }
-      })
-    })
-    return Array.from(relsByPair.values())
-  }, [models])
+  const relationships = useMemo((): NormalizedRelation[] => parseRelations(models), [models])
 
   const calculateInitialPositions = useCallback(() => {
     if (models.length === 0) return {}
@@ -209,9 +167,9 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
     }
   }, [dragState.isDragging, isPanning, handleMouseMove, handleMouseUp])
 
-  const renderRelationship = (rel: Relationship) => {
-    const fromPos = modelPositions[rel.from]
-    const toPos = modelPositions[rel.to]
+  const renderRelationship = (rel: NormalizedRelation) => {
+    const fromPos = modelPositions[rel.fromModel]
+    const toPos = modelPositions[rel.toModel]
     if (!fromPos || !toPos) return null
 
     const dx = toPos.x - fromPos.x
@@ -227,34 +185,29 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
     const endX = toPos.x - ux * boxSize
     const endY = toPos.y - uy * boxSize
 
-    const strokeColor = rel.isOptional ? '#94a3b8' : '#4f46e5'
+    const { fromEnd, toEnd } = rel
+    const strokeColor = fromEnd.min === 0 || toEnd.min === 0 ? '#94a3b8' : '#4f46e5'
     const perpX = -uy
     const perpY = ux
     const prongLen = 8
     const spread = 4
 
-    const toOptional = rel.isOptionalOnTo ?? rel.isOptional
-    const cardinalityLabel = rel.isArray
-      ? `One ${rel.from} has zero or more ${rel.to}s`
-      : `One ${rel.from} has one ${rel.to}`
-    const optionalLabel = toOptional ? ' (optional on ' + rel.to + ')' : ' (required)'
+    const fromMany = fromEnd.max === 'many'
+    const toMany = toEnd.max === 'many'
+    const fromOptional = fromEnd.min === 0
+    const toOptional = toEnd.min === 0
 
+    const crowsFootStr = toCrowsFootString(rel)
     const handleRelHover = (e: React.MouseEvent) => {
       setTooltip({
         x: e.clientX + 12,
         y: e.clientY - 8,
         content: (
           <div>
-            <p className="font-semibold">{rel.from} → {rel.to}</p>
+            <p className="font-semibold">{rel.fromModel} → {rel.toModel}</p>
             <p className="text-slate-400 mt-0.5">via field: <span className="text-indigo-400">{rel.field}</span></p>
-            <p className="mt-1">{cardinalityLabel}{optionalLabel}</p>
-            <p className="text-slate-500 mt-1 text-[10px]">
-              {rel.isArray
-                ? (toOptional ? 'o|--o{' : '||--o{')
-                : rel.isOptional
-                  ? '||--o|'
-                  : '||--|{'} in Crow&apos;s Foot notation
-            </p>
+            <p className="mt-1 text-slate-300">{crowsFootStr}</p>
+            <p className="text-slate-500 mt-1 text-[10px]">Crow&apos;s Foot notation</p>
           </div>
         ),
       })
@@ -262,7 +215,7 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
 
     return (
       <g
-        key={`${rel.from}-${rel.to}-${rel.field}`}
+        key={`${rel.fromModel}-${rel.toModel}-${rel.field}`}
         className="cursor-pointer"
         onMouseEnter={handleRelHover}
         onMouseMove={handleRelHover}
@@ -282,12 +235,13 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
           y1={startY}
           x2={endX}
           y2={endY}
-        stroke={strokeColor}
-        strokeWidth={2}
-        strokeDasharray={toOptional ? '5,5' : undefined}
+          stroke={strokeColor}
+          strokeWidth={2}
+          strokeDasharray={fromOptional || toOptional ? '5,5' : undefined}
           className="hover:stroke-indigo-600 transition-colors pointer-events-none"
         />
-        {rel.isArray ? (
+        {/* FROM end: many = crow, one = bar; optional = circle */}
+        {fromMany ? (
           <path
             d={`M ${startX + perpX * spread} ${startY + perpY * spread} L ${startX + ux * prongLen} ${startY + uy * prongLen} L ${startX - perpX * spread} ${startY - perpY * spread}`}
             fill="none"
@@ -307,16 +261,19 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
             strokeLinecap="round"
           />
         )}
-        {rel.isArray && (
-          <circle cx={startX} cy={startY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />
-        )}
-        {!rel.isArray && rel.isOptional && (
-          <circle cx={startX} cy={startY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />
-        )}
-        {toOptional && (
-          <circle cx={endX} cy={endY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />
-        )}
-        {rel.isArray ? (
+        {fromOptional && <circle cx={startX} cy={startY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />}
+        {/* TO end: many = crow, one = bar; optional = circle */}
+        {toOptional && <circle cx={endX} cy={endY} r={5} fill="none" stroke={strokeColor} strokeWidth={2} />}
+        {toMany ? (
+          <path
+            d={`M ${endX + perpX * spread} ${endY + perpY * spread} L ${endX - ux * prongLen} ${endY - uy * prongLen} L ${endX - perpX * spread} ${endY - perpY * spread}`}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
           <line
             x1={endX + perpX * prongLen}
             y1={endY + perpY * prongLen}
@@ -325,15 +282,6 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
             stroke={strokeColor}
             strokeWidth={2}
             strokeLinecap="round"
-          />
-        ) : (
-          <path
-            d={`M ${endX + perpX * spread} ${endY + perpY * spread} L ${endX - ux * prongLen} ${endY - uy * prongLen} L ${endX - perpX * spread} ${endY - perpY * spread}`}
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
           />
         )}
         <text
@@ -364,7 +312,7 @@ export function FullSchemaERDiagram({ schema, height = '600px', onModelClick, re
     const boxHeight = Math.max(100, 60 + Math.min(fieldCount, 8) * 16)
     const boxWidth = Math.max(180, model.name.length * 10 + 60)
 
-    const relCount = relationships.filter((r) => r.from === model.name || r.to === model.name).length
+    const relCount = relationships.filter((r) => r.fromModel === model.name || r.toModel === model.name).length
     const pkFields = model.fields?.filter((f) => f.type.includes('@id')) ?? []
     const fkFields = model.fields?.filter((f) =>
       f.name.endsWith('Id') && model.fields?.some(

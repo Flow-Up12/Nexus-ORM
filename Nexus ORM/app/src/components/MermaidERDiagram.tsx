@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react'
 import mermaid from 'mermaid'
 import type { ParsedModel, SchemaData } from '@/types/schema'
+import { parseRelations, endToMermaidSymbol } from '@/utils/erdCardinality'
 import { useTheme } from '@/context/ThemeContext'
 
 interface MermaidERDiagramProps {
@@ -9,49 +10,17 @@ interface MermaidERDiagramProps {
   onModelClick?: (modelName: string) => void
 }
 
-function isModelReference(field: { type: string }, modelNames: string[]): boolean {
-  const baseType = field.type.split(' ')[0].replace('[]', '').replace('?', '')
-  return modelNames.includes(baseType)
-}
-
-function getRelatedModelName(field: { type: string }): string {
-  return field.type.split(' ')[0].replace('[]', '').replace('?', '')
-}
-
 function schemaToMermaidEr(schema: SchemaData): string {
   const models = schema?.parsed?.models ?? []
   const modelNames = models.map((m) => m.name)
-  const modelMap = new Map(models.map((m) => [m.name, m]))
   const lines: string[] = ['erDiagram']
-  const seenPairs = new Set<string>()
 
-  models.forEach((model) => {
-    model.fields?.forEach((field) => {
-      if (field.type.includes('@relation') || isModelReference(field, modelNames)) {
-        const targetModel = getRelatedModelName(field)
-        if (targetModel && modelNames.includes(targetModel)) {
-          const pairKey = [model.name, targetModel].sort().join('|')
-          if (seenPairs.has(pairKey)) return
-          seenPairs.add(pairKey)
-          const isArray = field.type.includes('[]')
-          const isOptional = field.type.includes('?')
-          const targetModelObj = modelMap.get(targetModel)
-          const inverseField = targetModelObj?.fields?.find(
-            (f) => getRelatedModelName(f) === model.name && (f.type.includes('@relation') || isModelReference(f, modelNames))
-          )
-          const isOptionalOnTo = inverseField?.type.includes('?') ?? false
-          const label = field.name
-          // Crow's foot: -- = identifying (solid), .. = non-identifying (dashed)
-          // |{ = one or more, o{ = zero or more, || = exactly one, o| = zero or one
-          const link = isOptionalOnTo || isOptional ? '..' : '--'
-          if (isArray) {
-            lines.push(`    ${model.name} ${isOptionalOnTo ? 'o' : '|'}|${link}o{ ${targetModel} : "${label}"`)
-          } else {
-            lines.push(`    ${model.name} ||${link}o| ${targetModel} : "${label}"`)
-          }
-        }
-      }
-    })
+  const relations = parseRelations(models)
+  relations.forEach((rel) => {
+    const fromSym = endToMermaidSymbol(rel.fromEnd)
+    const toSym = endToMermaidSymbol(rel.toEnd)
+    const link = rel.fromEnd.min === 0 || rel.toEnd.min === 0 ? '..' : '--'
+    lines.push(`    ${rel.fromModel} ${fromSym}${link}${toSym} ${rel.toModel} : "${rel.field}"`)
   })
 
   const isForeignKey = (model: ParsedModel, fieldName: string): boolean => {
