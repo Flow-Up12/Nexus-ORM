@@ -1,0 +1,33 @@
+model University {
+  id                    Int       @id @default(autoincrement())
+  name String
+  founded DateTime
+  students Student[]
+}
+
+model Student {
+  id           Int       @id @default(autoincrement())
+  firstName    String
+  lastName     String
+  university   University @relation(fields: [universityId], references: [id])
+  universityId Int
+  class       Course      @relation(fields: [classId], references: [id]) 
+  classId     Int
+}
+
+model Course {
+  id           Int       @id @default(autoincrement())
+  name String
+  students Student[]
+  profesor Professor @relation(fields: [professorId], references: [id]) 
+  professorId Int
+}
+
+model Professor {
+  id           Int       @id @default(autoincrement())
+   firstName  String
+   lastName   String
+  course Course[]
+}
+
+

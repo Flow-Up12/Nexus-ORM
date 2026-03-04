@@ -6,6 +6,7 @@ model OrderLine {
   order           Order         @relation(fields: [orderId], references: [id])
   furnitureTypeId Int
   furnitureType   FurnitureType @relation(fields: [furnitureTypeId], references: [id])
+  yooooo          String
 
   @@unique([orderId, furnitureTypeId])
   @@map("order_lines")
