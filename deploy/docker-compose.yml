@@ -1,3 +1,6 @@
+# Server deployment - place this on your server with .env
+# Run: docker compose pull && docker compose up -d
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,7 +19,7 @@ services:
       retries: 5
 
   app:
-    image: ${DOCKER_IMAGE:-nexus-orm:latest}
+    image: ${DOCKER_IMAGE}
     platform: linux/amd64
     container_name: nexus_app
     restart: unless-stopped

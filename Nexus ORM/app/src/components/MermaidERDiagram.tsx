@@ -20,8 +20,7 @@ function schemaToMermaidEr(schema: SchemaData): string {
     const fromSym = endToMermaidSymbol(rel.fromEnd)
     const toSym = endToMermaidSymbol(rel.toEnd)
     const link = rel.fromEnd.min === 0 || rel.toEnd.min === 0 ? '..' : '--'
-    // Mermaid/PlantUML: 1st symbol = 2nd entity's cardinality, 2nd symbol = 1st entity's cardinality
-    lines.push(`    ${rel.fromModel} ${toSym}${link}${fromSym} ${rel.toModel} : "${rel.field}"`)
+    lines.push(`    ${rel.fromModel} ${fromSym}${link}${toSym} ${rel.toModel} : "${rel.field}"`)
   })
 
   const isForeignKey = (model: ParsedModel, fieldName: string): boolean => {
