@@ -10,9 +10,9 @@ const tabs = [
 ]
 
 export function ModelLayout() {
-  const { modelName } = useParams<{ modelName: string }>()
+  const { modelName, projectId } = useParams<{ modelName: string; projectId?: string }>()
   const location = useLocation()
-  const basePath = `/model/${modelName}`
+  const basePath = projectId ? `/project/${projectId}/model/${modelName}` : `/model/${modelName}`
 
   return (
     <div className="space-y-4">

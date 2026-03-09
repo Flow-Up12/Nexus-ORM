@@ -32,3 +32,12 @@ Thumbs.db
 # Misc
 *.tsbuildinfo
 .cache/
+
+# Generated
+generated/
+
+# Uploads
+uploads/
+
+# Project data (per-project schema, etc.)
+data/

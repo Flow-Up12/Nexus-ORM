@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom'
 import { FullSchemaERDiagram } from '@/components/FullSchemaERDiagram'
 import { MermaidERDiagram } from '@/components/MermaidERDiagram'
 import { SchemaFilePanel } from '@/components/SchemaFilePanel'
@@ -28,6 +28,7 @@ function generateRoomId(): string {
 }
 
 export function SchemaCanvasPage() {
+  const { projectId } = useParams<{ projectId?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
@@ -38,14 +39,14 @@ export function SchemaCanvasPage() {
   const [syncUI, setSyncUI] = useState(true)
   const [showSyncOptions, setShowSyncOptions] = useState(false)
 
-  const roomId = searchParams.get('room') || ''
+  const roomId = projectId ? `project:${projectId}` : searchParams.get('room') || ''
   useEffect(() => {
-    if (!roomId) {
+    if (!projectId && !roomId) {
       setSearchParams({ room: generateRoomId() }, { replace: true })
     }
-  }, [roomId, setSearchParams])
+  }, [projectId, roomId, setSearchParams])
 
-  const { schema, isLoading } = useSchema()
+  const { schema, isLoading } = useSchema(projectId)
   const collaboration = useCollaboration(roomId || 'default', {
     syncUI,
     uiState: { filePanelOpen, viewMode, activeFile: activeFile ?? undefined },
@@ -58,7 +59,7 @@ export function SchemaCanvasPage() {
       }
     },
   })
-  const { liveSchema, updateFileContent } = useLiveSchema(roomId || 'default')
+  const { liveSchema, updateFileContent } = useLiveSchema(roomId || 'default', projectId)
 
   const displaySchema = liveSchema ?? schema ?? null
 
@@ -104,7 +105,7 @@ export function SchemaCanvasPage() {
   const handleModelClick = useCallback(
     async (modelName: string) => {
       try {
-        const modelFiles = await fetchModelFiles()
+        const modelFiles = await fetchModelFiles(projectId)
         const filePath = modelFiles[modelName]
         if (filePath) {
           setFilePanelOpen(true)
@@ -115,7 +116,7 @@ export function SchemaCanvasPage() {
         // Model file not found, ignore
       }
     },
-    [syncUI, viewMode, collaboration.broadcastUI]
+    [syncUI, viewMode, collaboration.broadcastUI, projectId]
   )
 
   const MIN_SIDEBAR_WIDTH = 280
@@ -197,9 +198,9 @@ export function SchemaCanvasPage() {
             <span className="text-sm font-medium">Files</span>
           </button>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(projectId ? `/project/${projectId}` : '/')}
             className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 shadow-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-            title="Back to app"
+            title={projectId ? 'Back to project' : 'Back to app'}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -327,6 +328,7 @@ export function SchemaCanvasPage() {
                 activeFileFromSync={activeFile}
                 onActiveFileChange={handleActiveFileChange}
                 roomId={roomId}
+                projectId={projectId}
                 others={others}
                 setEditorState={collaboration.setEditorState}
               />

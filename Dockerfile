@@ -12,8 +12,9 @@ RUN npm ci
 # Copy prisma schema
 COPY prisma ./prisma
 
-# Generate Prisma client
+# Generate Prisma clients (default + meta)
 RUN npx prisma generate
+RUN npx prisma generate --schema=prisma/meta/schema.prisma
 
 # Copy source
 COPY . .
@@ -35,12 +36,13 @@ RUN npm ci --omit=dev
 # Copy prisma
 COPY prisma ./prisma
 
-# Generate Prisma client
+# Generate Prisma client (meta client is in generated/, copied from builder)
 RUN npx prisma generate
 
-# Copy built app and routes from builder (JSON form handles spaces in paths)
+# Copy built app, routes, and generated meta client from builder
 COPY --from=builder ["/app/Nexus ORM/app/dist", "./Nexus ORM/app/dist"]
 COPY --from=builder ["/app/Nexus ORM/routes", "./Nexus ORM/routes"]
+COPY --from=builder ["/app/generated", "./generated"]
 
 # Copy server source
 COPY src ./src
@@ -49,6 +51,7 @@ COPY lib ./lib
 # Create startup script (migrate deploy, then start server)
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'npx prisma migrate deploy 2>/dev/null || true' >> /app/start.sh && \
+    echo 'npx prisma migrate deploy --schema=prisma/meta/schema.prisma 2>/dev/null || true' >> /app/start.sh && \
     echo 'exec npx tsx src/server.ts' >> /app/start.sh && \
     chmod +x /app/start.sh
 

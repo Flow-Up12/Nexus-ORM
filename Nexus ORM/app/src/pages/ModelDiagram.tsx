@@ -17,8 +17,8 @@ function getRelatedModelNames(model: ParsedModel, allModels: ParsedModel[]): Set
 }
 
 export function ModelDiagram() {
-  const { modelName } = useParams<{ modelName: string }>()
-  const { schema, isLoading, error, models } = useSchema()
+  const { modelName, projectId } = useParams<{ modelName: string; projectId?: string }>()
+  const { schema, isLoading, error, models } = useSchema(projectId)
 
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
   const allModels = models

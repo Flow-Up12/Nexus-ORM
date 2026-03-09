@@ -30,7 +30,7 @@ import { isRelationField, getRelationTargetModel, formatRelationDisplay } from '
 import type { SchemaData } from '@/types/schema'
 
 export function ModelData() {
-  const { modelName } = useParams<{ modelName: string }>()
+  const { modelName, projectId } = useParams<{ modelName: string; projectId?: string }>()
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
@@ -57,7 +57,7 @@ export function ModelData() {
     return () => document.removeEventListener('click', handleClick)
   }, [showColumnPicker])
 
-  const { schema } = useSchema()
+  const { schema } = useSchema(projectId)
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
 
   const urlFilters = useMemo(() => {

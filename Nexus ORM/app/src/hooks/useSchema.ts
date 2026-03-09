@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchSchema } from '@/api/schema'
 
-export function useSchema() {
+export function useSchema(projectId?: string | null) {
   const { data: schema, isLoading, error, refetch } = useQuery({
-    queryKey: ['schema'],
-    queryFn: fetchSchema,
+    queryKey: ['schema', projectId ?? 'global'],
+    queryFn: () => fetchSchema(projectId),
   })
 
   const models = schema?.parsed?.models ?? []

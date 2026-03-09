@@ -25,11 +25,12 @@ interface SchemaFilePanelProps {
   activeFileFromSync?: string | null
   onActiveFileChange?: (filePath: string) => void
   roomId?: string
+  projectId?: string | null
   others?: CollaboratorInfo[]
   setEditorState?: (cursor: EditorCursor | null, selection: EditorSelection | null) => void
 }
 
-export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onActiveFileChange, roomId, others = [], setEditorState }: SchemaFilePanelProps) {
+export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onActiveFileChange, roomId, projectId, others = [], setEditorState }: SchemaFilePanelProps) {
   const { theme } = useTheme()
   const queryClient = useQueryClient()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -56,15 +57,15 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
   }
 
   const { data: files } = useQuery({
-    queryKey: ['schema-files'],
-    queryFn: fetchSchemaFiles,
+    queryKey: ['schema-files', projectId ?? 'global'],
+    queryFn: () => fetchSchemaFiles(projectId),
   })
 
   const { broadcastFileContent, subscribeToFile } = useFileSync(roomId || 'default')
 
   const loadFile = useCallback(async (filePath: string, skipBroadcast?: boolean) => {
     try {
-      const content = await fetchSchemaFile(filePath)
+      const content = await fetchSchemaFile(filePath, projectId)
       setEditorContent(content)
       setSelectedFile(filePath)
       setIsDirty(false)
@@ -72,7 +73,7 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
     } catch (e) {
       toast.error('Failed to load file')
     }
-  }, [onActiveFileChange])
+  }, [onActiveFileChange, projectId])
 
   useEffect(() => {
     if (files && files.length > 0 && !selectedFile) {
@@ -116,12 +117,12 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
     if (!selectedFile || !isDirty) return
     setSaving(true)
     try {
-      await saveSchemaFile(selectedFile, editorContent)
+      await saveSchemaFile(selectedFile, editorContent, projectId)
       setIsDirty(false)
-      queryClient.invalidateQueries({ queryKey: ['schema'] })
-      queryClient.invalidateQueries({ queryKey: ['schema-files'] })
+      queryClient.invalidateQueries({ queryKey: ['schema', projectId ?? 'global'] })
+      queryClient.invalidateQueries({ queryKey: ['schema-files', projectId ?? 'global'] })
       toast.success('File saved')
-      const result = await validateSchema()
+      const result = await validateSchema(projectId)
       setValidationResult(result)
       if (!result.valid) toast.error('Schema has errors')
     } catch (e) {
@@ -129,11 +130,11 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
     } finally {
       setSaving(false)
     }
-  }, [selectedFile, editorContent, isDirty, queryClient])
+  }, [selectedFile, editorContent, isDirty, queryClient, projectId])
 
   const handleValidate = useCallback(async () => {
     try {
-      const result = await validateSchema()
+      const result = await validateSchema(projectId)
       setValidationResult(result)
       if (result.valid) {
         toast.success('Schema is valid')
@@ -143,7 +144,7 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
     } catch {
       toast.error('Validation failed')
     }
-  }, [])
+  }, [projectId])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -319,12 +320,12 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
   const handleCreateFile = useCallback(async () => {
     const name = newFileName.trim().replace(/\.prisma$/, '') || 'model'
     const fileName = `${name}.prisma`
-    const schemaDir = 'prisma/schema'
+    const schemaDir = projectId ? `data/projects/${projectId}/schema` : 'prisma/schema'
     const filePath = `${schemaDir}/${fileName}`
     try {
-      await saveSchemaFile(filePath, `model ${name.charAt(0).toUpperCase() + name.slice(1)} {\n  id Int @id @default(autoincrement())\n}\n`)
-      queryClient.invalidateQueries({ queryKey: ['schema-files'] })
-      queryClient.invalidateQueries({ queryKey: ['schema'] })
+      await saveSchemaFile(filePath, `model ${name.charAt(0).toUpperCase() + name.slice(1)} {\n  id Int @id @default(autoincrement())\n}\n`, projectId)
+      queryClient.invalidateQueries({ queryKey: ['schema-files', projectId ?? 'global'] })
+      queryClient.invalidateQueries({ queryKey: ['schema', projectId ?? 'global'] })
       setShowNewFileInput(false)
       setNewFileName('')
       loadFile(filePath)
@@ -332,7 +333,7 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to create file')
     }
-  }, [newFileName, saveSchemaFile, queryClient, loadFile])
+  }, [newFileName, saveSchemaFile, queryClient, loadFile, projectId])
 
   const fileName = selectedFile?.split('/').pop() ?? ''
 
@@ -378,7 +379,7 @@ export function SchemaFilePanel({ onClose, onFileChange, activeFileFromSync, onA
             className="flex items-center gap-1 flex-1 min-w-0 px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             {treeOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            prisma/schema
+            {projectId ? 'Project schema' : 'prisma/schema'}
           </button>
           <button
             onClick={() => { setShowNewFileInput(true); setNewFileName('') }}

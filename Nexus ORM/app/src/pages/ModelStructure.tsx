@@ -10,12 +10,12 @@ import { useSchema, useMutationWithToast } from '@/hooks'
 import type { FieldData } from '@/api/fields'
 
 export function ModelStructure() {
-  const { modelName } = useParams<{ modelName: string }>()
+  const { modelName, projectId } = useParams<{ modelName: string; projectId?: string }>()
   const [showAddField, setShowAddField] = useState(false)
   const [editingField, setEditingField] = useState<{ name: string; type: string } | null>(null)
   const [deletingField, setDeletingField] = useState<string | null>(null)
 
-  const { schema, isLoading, error, modelNames, enumNames } = useSchema()
+  const { schema, isLoading, error, modelNames, enumNames } = useSchema(projectId)
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
   const filteredModelNames = modelNames.filter((n) => n !== modelName)
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Trash2 } from 'lucide-react'
 import { createModel } from '@/api/models'
@@ -13,7 +13,8 @@ export function CreateModelForm() {
     { name: '', type: 'String', required: true, unique: false },
   ])
 
-  const { modelNames, enumNames } = useSchema()
+  const { projectId } = useParams<{ projectId?: string }>()
+  const { modelNames, enumNames } = useSchema(projectId)
   const scalarTypes = ['String', 'Int', 'Float', 'Boolean', 'DateTime', 'Json', 'Decimal']
 
   const addField = () => {
@@ -50,7 +51,8 @@ export function CreateModelForm() {
         }))
       )
       toast.success('Model created')
-      navigate(`/model/${name.trim()}/data`)
+      const base = projectId ? `/project/${projectId}` : ''
+      navigate(`${base}/model/${name.trim()}/data`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Create failed')
     }

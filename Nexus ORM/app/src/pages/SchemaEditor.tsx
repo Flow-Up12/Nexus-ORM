@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Save, Play, Database, History, ChevronDown, ChevronUp } from 'lucide-react'
 import { LoadingSpinner, ErrorMessage, Button, Input, Textarea, PageHeader } from '@/ui'
+import { useParams } from 'react-router-dom'
 import {
   saveSchemaRaw,
   generateClient,
@@ -12,11 +13,12 @@ import {
 import { useSchema } from '@/hooks'
 
 export function SchemaEditor() {
+  const { projectId } = useParams<{ projectId?: string }>()
   const queryClient = useQueryClient()
-  const { schema: data, isLoading, error, refetch } = useSchema()
+  const { schema: data, isLoading, error, refetch } = useSchema(projectId)
   const { data: migrationsData } = useQuery({
-    queryKey: ['migrations'],
-    queryFn: fetchMigrations,
+    queryKey: ['migrations', projectId ?? 'global'],
+    queryFn: () => fetchMigrations(projectId),
   })
   const [rawContent, setRawContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -37,7 +39,7 @@ export function SchemaEditor() {
     setSaving(true)
     setOutput(null)
     try {
-      await saveSchemaRaw(content)
+      await saveSchemaRaw(content, projectId)
       toast.success('Schema saved')
       refetch()
     } catch (e) {
@@ -51,7 +53,7 @@ export function SchemaEditor() {
     setGenerating(true)
     setOutput(null)
     try {
-      const result = await generateClient()
+      const result = await generateClient(projectId)
       setOutput({ type: 'generate', stdout: result.output, stderr: result.error })
       toast.success('Prisma client generated')
     } catch (e) {
@@ -69,11 +71,11 @@ export function SchemaEditor() {
     setMigrating(true)
     setOutput(null)
     try {
-      const result = await runMigration(migrationName.trim())
+      const result = await runMigration(migrationName.trim(), projectId)
       setOutput({ type: 'migrate', stdout: result.output, stderr: result.error })
       toast.success('Migration completed')
       refetch()
-      queryClient.invalidateQueries({ queryKey: ['migrations'] })
+      queryClient.invalidateQueries({ queryKey: ['migrations', projectId ?? 'global'] })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Migration failed')
     } finally {

@@ -19,5 +19,5 @@ export async function apiFetch(
   if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json'
   }
-  return fetch(url, { ...options, headers })
+  return fetch(url, { ...options, headers, credentials: 'include' })
 }

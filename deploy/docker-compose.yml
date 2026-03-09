@@ -20,7 +20,6 @@ services:
 
   app:
     image: ${DOCKER_IMAGE}
-    platform: linux/amd64
     container_name: nexus_app
     restart: unless-stopped
     ports:

@@ -8,17 +8,19 @@ function toModelLabel(fkParam: string): string {
 }
 
 export function ModelBreadcrumb() {
-  const { modelName } = useParams<{ modelName: string; id: string }>()
+  const { modelName, projectId } = useParams<{ modelName: string; id: string; projectId?: string }>()
   const [searchParams] = useSearchParams()
   const { pathname } = useLocation()
+  const base = projectId ? `/project/${projectId}` : ''
+  const dashboardHref = projectId ? `/project/${projectId}` : '/projects'
 
-  const segments: { label: string; href?: string }[] = [{ label: 'Dashboard', href: '/' }]
+  const segments: { label: string; href?: string }[] = [{ label: projectId ? 'Project' : 'Dashboard', href: dashboardHref }]
 
   if (!modelName) {
     return (
       <nav className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400" aria-label="Breadcrumb">
-        <Link to="/" className="hover:text-indigo-600 dark:hover:text-indigo-400">
-          Dashboard
+        <Link to={dashboardHref} className="hover:text-indigo-600 dark:hover:text-indigo-400">
+          {projectId ? 'Project' : 'Dashboard'}
         </Link>
       </nav>
     )
@@ -26,7 +28,7 @@ export function ModelBreadcrumb() {
 
   segments.push({
     label: modelName,
-    href: `/model/${modelName}/data`,
+    href: `${base}/model/${modelName}/data`,
   })
 
   // Check if we're on a record page
@@ -34,7 +36,7 @@ export function ModelBreadcrumb() {
   if (recordMatch) {
     const recordId = recordMatch[1]
     const subPath = recordMatch[2]
-    segments.push({ label: `Record #${recordId}`, href: `/model/${modelName}/record/${recordId}/show` })
+    segments.push({ label: `Record #${recordId}`, href: `${base}/model/${modelName}/record/${recordId}/show` })
     if (subPath === 'edit') {
       segments.push({ label: 'Edit' })
     } else if (subPath === 'show') {

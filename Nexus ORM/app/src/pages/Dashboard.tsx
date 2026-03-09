@@ -23,7 +23,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
-          to="/schema/overview"
+          to="/schema/canvas"
           className="block p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500 transition-all group"
         >
           <GitBranch className="w-10 h-10 text-indigo-600 dark:text-indigo-400 mb-3 group-hover:scale-110 transition-transform" />

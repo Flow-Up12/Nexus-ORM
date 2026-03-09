@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Trash2 } from 'lucide-react'
 import { createEnum } from '@/api/enums'
@@ -7,6 +7,7 @@ import { Card, Input, Button, PageHeader } from '@/ui'
 
 export function CreateEnumForm() {
   const navigate = useNavigate()
+  const { projectId } = useParams<{ projectId?: string }>()
   const [enumName, setEnumName] = useState('')
   const [values, setValues] = useState<string[]>([''])
   const [newValue, setNewValue] = useState('')
@@ -41,7 +42,8 @@ export function CreateEnumForm() {
     try {
       await createEnum(enumName.trim(), validValues)
       toast.success('Enum created')
-      navigate(`/enum/${enumName.trim()}`)
+      const base = projectId ? `/project/${projectId}` : ''
+      navigate(`${base}/enum/${enumName.trim()}`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Create failed')
     }

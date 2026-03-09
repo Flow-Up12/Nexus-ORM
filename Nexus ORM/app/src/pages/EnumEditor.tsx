@@ -7,10 +7,10 @@ import { Card, Input, Button, PageHeader, LoadingSpinner, ErrorMessage, BackLink
 import { useSchema, useMutationWithToast } from '@/hooks'
 
 export function EnumEditor() {
-  const { enumName } = useParams<{ enumName: string }>()
+  const { enumName, projectId } = useParams<{ enumName: string; projectId?: string }>()
   const [newValue, setNewValue] = useState('')
 
-  const { schema, isLoading, error } = useSchema()
+  const { schema, isLoading, error } = useSchema(projectId)
   const enumDef = schema?.parsed?.enums?.find((e) => e.name === enumName)
   const values = enumDef?.values ?? []
 

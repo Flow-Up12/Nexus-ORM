@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useParams } from 'react-router-dom'
 import {
   Database,
   FileCode,
@@ -15,18 +15,26 @@ import {
   Sun,
   Moon,
   Terminal,
+  FolderOpen,
 } from 'lucide-react'
 import { SearchInput, Button } from '@/ui'
 import { useSchema } from '@/hooks'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { NotificationBell } from '@/components/NotificationBell'
 
 const SIDEBAR_COLLAPSED_KEY = 'nexus-sidebar-collapsed'
 
-export function Layout() {
+interface LayoutProps {
+  projectScoped?: boolean
+}
+
+export function Layout({ projectScoped }: LayoutProps = {}) {
   const location = useLocation()
+  const { projectId } = useParams<{ projectId?: string }>()
   const { logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const base = projectScoped && projectId ? `/project/${projectId}` : ''
   const [search, setSearch] = useState('')
   const [modelsOpen, setModelsOpen] = useState(true)
   const [enumsOpen, setEnumsOpen] = useState(true)
@@ -46,7 +54,7 @@ export function Layout() {
     }
   }, [sidebarCollapsed])
 
-  const { models, enums } = useSchema()
+  const { models, enums } = useSchema(projectScoped ? projectId : undefined)
 
   const searchLower = search.toLowerCase().trim()
   const filteredModels = searchLower
@@ -57,12 +65,13 @@ export function Layout() {
     : enums
 
   const navItems = [
-    { path: '/schema/canvas', label: 'Full Schema ER Diagram', icon: GitBranch },
-    { path: '/schema/editor', label: 'Schema Editor', icon: FileCode },
-    { path: '/query', label: 'SQL Playground', icon: Terminal },
-    { path: '/create/model', label: 'Create Model', icon: Plus },
-    { path: '/create/enum', label: 'Create Enum', icon: Plus },
-    { path: '/settings', label: 'Settings', icon: Settings },
+    { path: '/projects', label: 'Projects', icon: Database },
+    { path: `${base}/schema/canvas`, label: 'Full Schema ER Diagram', icon: GitBranch },
+    { path: `${base}/schema/editor`, label: 'Schema Editor', icon: FileCode },
+    { path: `${base}/query`, label: 'SQL Playground', icon: Terminal },
+    { path: `${base}/create/model`, label: 'Create Model', icon: Plus },
+    { path: `${base}/create/enum`, label: 'Create Enum', icon: Plus },
+    { path: `${base}/settings`, label: 'Settings', icon: Settings },
   ]
 
   const isActive = (path: string) => {
@@ -88,13 +97,16 @@ export function Layout() {
                 </div>
               )}
             </div>
-            <Button
-              variant="icon"
-              onClick={toggleTheme}
-              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </Button>
+            <div className="flex items-center gap-1">
+              <NotificationBell />
+              <Button
+                variant="icon"
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              >
+                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -109,6 +121,15 @@ export function Layout() {
         )}
 
         <nav className={`flex-1 overflow-y-auto p-4 space-y-1 ${sidebarCollapsed ? 'p-2' : ''}`}>
+          {projectScoped && projectId && (
+            <Link
+              to="/projects"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 mb-2"
+            >
+              <FolderOpen className="w-5 h-5 shrink-0" />
+              {!sidebarCollapsed && 'Back to Projects'}
+            </Link>
+          )}
           {navItems.slice(0, 3).map(({ path, label, icon: Icon }) => (
             <Link
               key={path}
@@ -150,9 +171,9 @@ export function Layout() {
                     {filteredModels.map((m) => (
                       <Link
                         key={m.name}
-                        to={`/model/${m.name}/data`}
+                        to={`${base}/model/${m.name}/data`}
                         className={`block px-4 py-2 rounded-lg text-sm ${
-                          location.pathname.startsWith(`/model/${m.name}`)
+                          location.pathname.includes(`/model/${m.name}`)
                             ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                         }`}
@@ -188,9 +209,9 @@ export function Layout() {
                     {filteredEnums.map((e) => (
                       <Link
                         key={e.name}
-                        to={`/enum/${e.name}`}
+                        to={`${base}/enum/${e.name}`}
                         className={`block px-4 py-2 rounded-lg text-sm ${
-                          location.pathname === `/enum/${e.name}`
+                          location.pathname.endsWith(`/enum/${e.name}`)
                             ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                         }`}
@@ -207,9 +228,9 @@ export function Layout() {
 
               <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700 space-y-1">
                 <Link
-                  to="/create/model"
+                  to={`${base}/create/model`}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive('/create/model')
+                    isActive(`${base}/create/model`)
                       ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
@@ -218,9 +239,9 @@ export function Layout() {
                   Create Model
                 </Link>
                 <Link
-                  to="/create/enum"
+                  to={`${base}/create/enum`}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive('/create/enum')
+                    isActive(`${base}/create/enum`)
                       ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
@@ -229,9 +250,9 @@ export function Layout() {
                   Create Enum
                 </Link>
                 <Link
-                  to="/settings"
+                  to={`${base}/settings`}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive('/settings')
+                    isActive(`${base}/settings`)
                       ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
@@ -248,10 +269,10 @@ export function Layout() {
               {filteredModels.map((m) => (
                 <Link
                   key={m.name}
-                  to={`/model/${m.name}/data`}
+                  to={`${base}/model/${m.name}/data`}
                   title={m.name}
                   className={`flex justify-center p-2 rounded-lg transition-colors ${
-                    location.pathname.startsWith(`/model/${m.name}`)
+                    location.pathname.includes(`/model/${m.name}`)
                       ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}

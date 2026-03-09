@@ -2,21 +2,33 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import fileUpload from 'express-fileupload'
+import path from 'path'
 import { createServer } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import * as Y from 'yjs'
 
-import ufoStudioRoutes from '../Nexus ORM/routes/index'
+import ufoStudioRoutes from '../Nexus ORM/routes/index.js'
+import authRoutes from '../Nexus ORM/routes/auth.js'
+import projectRoutes from '../Nexus ORM/routes/projects.js'
+import invitationRoutes from '../Nexus ORM/routes/invitations.js'
 
 const app = express()
-app.use(cors())
+app.use(cors({ origin: true, credentials: true }))
 app.use(express.json())
 app.use(cookieParser())
+app.use(fileUpload({ limits: { fileSize: 5 * 1024 * 1024 } }))
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || 'uploads'
+app.use('/ufo-studio/uploads', express.static(path.join(process.cwd(), UPLOAD_DIR)))
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'UFO Server running' })
 })
 
+app.use('/ufo-studio/api/auth', authRoutes)
+app.use('/ufo-studio/api/projects', projectRoutes)
+app.use('/ufo-studio/api/invitations', invitationRoutes)
 app.use('/ufo-studio', ufoStudioRoutes)
 
 const server = createServer(app)

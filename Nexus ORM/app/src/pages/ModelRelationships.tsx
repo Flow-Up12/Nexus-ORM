@@ -22,8 +22,8 @@ function getRelationships(model: ParsedModel, schema: SchemaData) {
 }
 
 export function ModelRelationships() {
-  const { modelName } = useParams<{ modelName: string }>()
-  const { schema, isLoading, error } = useSchema()
+  const { modelName, projectId } = useParams<{ modelName: string; projectId?: string }>()
+  const { schema, isLoading, error } = useSchema(projectId)
 
   const model = schema?.parsed?.models?.find((m) => m.name === modelName)
   const relationships = model && schema ? getRelationships(model, schema) : []
@@ -76,7 +76,7 @@ export function ModelRelationships() {
               </Table.BodyCell>
               <Table.BodyCell>
                 <Link
-                  to={`/model/${rel.target}/data`}
+                  to={`${projectId ? `/project/${projectId}` : ''}/model/${rel.target}/data`}
                   className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
                 >
                   View <ArrowRight className="w-4 h-4" />

@@ -1,22 +1,29 @@
 import type { SchemaData } from '@/types/schema'
 import { API_BASE } from '@/App'
 
-export async function fetchSchema(): Promise<SchemaData> {
-  const res = await fetch(`${API_BASE}/schema`)
+function schemaBase(projectId?: string | null): string {
+  if (projectId) {
+    return `${API_BASE}/projects/${projectId}/schema`
+  }
+  return `${API_BASE}/schema`
+}
+
+export async function fetchSchema(projectId?: string | null): Promise<SchemaData> {
+  const res = await fetch(`${schemaBase(projectId)}`, { credentials: 'include' })
   if (!res.ok) throw new Error('Failed to fetch schema')
   const json = await res.json()
   return json.data
 }
 
-export async function fetchSchemaRaw(): Promise<string> {
-  const res = await fetch(`${API_BASE}/schema/raw`)
+export async function fetchSchemaRaw(projectId?: string | null): Promise<string> {
+  const res = await fetch(`${schemaBase(projectId)}/raw`)
   if (!res.ok) throw new Error('Failed to fetch raw schema')
   const json = await res.json()
   return json.content
 }
 
-export async function saveSchemaRaw(content: string): Promise<{ success: boolean; message?: string }> {
-  const res = await fetch(`${API_BASE}/schema/raw`, {
+export async function saveSchemaRaw(content: string, projectId?: string | null): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`${schemaBase(projectId)}/raw`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
@@ -26,8 +33,8 @@ export async function saveSchemaRaw(content: string): Promise<{ success: boolean
   return json
 }
 
-export async function generateClient(): Promise<{ success: boolean; output?: string; error?: string }> {
-  const res = await fetch(`${API_BASE}/schema/generate`, {
+export async function generateClient(projectId?: string | null): Promise<{ success: boolean; output?: string; error?: string }> {
+  const res = await fetch(`${schemaBase(projectId)}/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
@@ -37,8 +44,8 @@ export async function generateClient(): Promise<{ success: boolean; output?: str
   return json
 }
 
-export async function runMigration(name: string): Promise<{ success: boolean; output?: string; error?: string }> {
-  const res = await fetch(`${API_BASE}/schema/migrate`, {
+export async function runMigration(name: string, projectId?: string | null): Promise<{ success: boolean; output?: string; error?: string }> {
+  const res = await fetch(`${schemaBase(projectId)}/migrate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -55,8 +62,8 @@ export interface MigrationInfo {
   sql: string
 }
 
-export async function fetchMigrations(): Promise<{ migrations: MigrationInfo[] }> {
-  const res = await fetch(`${API_BASE}/schema/migrations`)
+export async function fetchMigrations(projectId?: string | null): Promise<{ migrations: MigrationInfo[] }> {
+  const res = await fetch(`${schemaBase(projectId)}/migrations`)
   if (!res.ok) throw new Error('Failed to fetch migrations')
   const json = await res.json()
   return json
@@ -67,22 +74,22 @@ export interface SchemaFileInfo {
   name: string
 }
 
-export async function fetchSchemaFiles(): Promise<SchemaFileInfo[]> {
-  const res = await fetch(`${API_BASE}/schema/files`)
+export async function fetchSchemaFiles(projectId?: string | null): Promise<SchemaFileInfo[]> {
+  const res = await fetch(`${schemaBase(projectId)}/files`)
   if (!res.ok) throw new Error('Failed to fetch schema files')
   const json = await res.json()
   return json.data
 }
 
-export async function fetchSchemaFile(filePath: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/schema/file?path=${encodeURIComponent(filePath)}`)
+export async function fetchSchemaFile(filePath: string, projectId?: string | null): Promise<string> {
+  const res = await fetch(`${schemaBase(projectId)}/file?path=${encodeURIComponent(filePath)}`)
   if (!res.ok) throw new Error('Failed to fetch file')
   const json = await res.json()
   return json.content
 }
 
-export async function saveSchemaFile(filePath: string, content: string): Promise<{ success: boolean; message?: string }> {
-  const res = await fetch(`${API_BASE}/schema/file`, {
+export async function saveSchemaFile(filePath: string, content: string, projectId?: string | null): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`${schemaBase(projectId)}/file`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: filePath, content }),
@@ -92,8 +99,8 @@ export async function saveSchemaFile(filePath: string, content: string): Promise
   return json
 }
 
-export async function parseSchemaContent(content: string): Promise<{ models: any[]; enums: any[] }> {
-  const res = await fetch(`${API_BASE}/schema/parse`, {
+export async function parseSchemaContent(content: string, projectId?: string | null): Promise<{ models: any[]; enums: any[] }> {
+  const res = await fetch(`${schemaBase(projectId)}/parse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
@@ -103,21 +110,21 @@ export async function parseSchemaContent(content: string): Promise<{ models: any
   return json.data
 }
 
-export async function validateSchema(): Promise<{ valid: boolean; errors?: string }> {
-  const res = await fetch(`${API_BASE}/schema/validate`, { method: 'POST' })
+export async function validateSchema(projectId?: string | null): Promise<{ valid: boolean; errors?: string }> {
+  const res = await fetch(`${schemaBase(projectId)}/validate`, { method: 'POST' })
   const json = await res.json()
   return json
 }
 
-export async function fetchAllSchemaFileContents(): Promise<{ files: Array<{ path: string; name: string; content: string }> }> {
-  const res = await fetch(`${API_BASE}/schema/files/contents`)
+export async function fetchAllSchemaFileContents(projectId?: string | null): Promise<{ files: Array<{ path: string; name: string; content: string }> }> {
+  const res = await fetch(`${schemaBase(projectId)}/files/contents`, { credentials: 'include' })
   if (!res.ok) throw new Error('Failed to fetch file contents')
   const json = await res.json()
   return json.data
 }
 
-export async function fetchModelFiles(): Promise<Record<string, string>> {
-  const res = await fetch(`${API_BASE}/schema/models`)
+export async function fetchModelFiles(projectId?: string | null): Promise<Record<string, string>> {
+  const res = await fetch(`${schemaBase(projectId)}/models`)
   if (!res.ok) throw new Error('Failed to fetch model files')
   const json = await res.json()
   return json.data || {}

@@ -1,34 +1,16 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: nexus_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ufo_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ufo_password}
-      POSTGRES_DB: ${POSTGRES_DB:-ufo_db}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ufo_user} -d ${POSTGRES_DB:-ufo_db}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  app:
-    image: ${DOCKER_IMAGE:-nexus-orm:latest}
-    platform: linux/amd64
-    container_name: nexus_app
+    container_name: ufo_postgres
     restart: unless-stopped
     ports:
-      - "${PORT:-3001}:3001"
+      - "5432:5432"
     environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ufo_user}:${POSTGRES_PASSWORD:-ufo_password}@postgres:5432/${POSTGRES_DB:-ufo_db}
-    depends_on:
-      postgres:
-        condition: service_healthy
+      POSTGRES_USER: ufo_user
+      POSTGRES_PASWORD: ufo_password
+      POSTGRES_DB: ufo_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
 volumes:
   pgdata:

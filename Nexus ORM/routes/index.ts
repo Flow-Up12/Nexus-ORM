@@ -6,6 +6,9 @@ import path, { join } from "path"
 import { promisify } from "util"
 import { Prisma } from "@prisma/client"
 import { prisma } from "../../lib/prisma"
+import { schemaAuthMiddleware as authenticateAdmin } from "../../lib/auth.js"
+import { getSchemaDir } from "../../lib/schemaContext.js"
+import { getAllPrismaFiles, getFullSchema, parseSchema } from "../../lib/schemaHelpers.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -56,71 +59,6 @@ function getPrismaModelName(modelName: string): string {
   return modelName.charAt(0).toLowerCase() + modelName.slice(1)
 }
 
-// Auth middleware
-const authenticateAdmin = (req: any, res: any, next: any) => {
-    // Always bypass in development or when no NODE_ENV is set
-    if (!process.env.NODE_ENV || process.env.NODE_ENV === "development") {
-        return next()
-    }
-
-    // Check for token in authorization header or cookie
-    const authHeader = req.headers.authorization
-    const token = authHeader?.split(" ")[1] || req.cookies?.ufoStudioToken
-
-    if (!token || token !== "ufo-studio-token") {
-        return res.status(401).json({ message: "Access denied" })
-    }
-    next()
-}
-
-// Login page
-router.get("/login", (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Database Manager Login</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-        </head>
-        <body class="bg-gray-900">
-            <div class="min-h-screen flex items-center justify-center">
-                <div class="bg-white rounded-lg shadow-xl p-8 w-96">
-                    <div class="text-center mb-8">
-                        <i class="fas fa-database text-blue-500 text-4xl mb-4"></i>
-                        <h1 class="text-2xl font-bold">Database Manager</h1>
-                        <p class="text-gray-600">Professional Interface</p>
-                    </div>
-                    <form id="loginForm" class="space-y-6">
-                        <input type="text" id="username" placeholder="Username" value="admin" 
-                               class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
-                        <input type="password" id="password" placeholder="Password" value="admin123"
-                               class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
-                        <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md">
-                            Sign In
-                        </button>
-                    </form>
-                </div>
-            </div>
-            <script>
-                document.getElementById('loginForm').addEventListener('submit', (e) => {
-                    e.preventDefault()
-                    if (document.getElementById('username').value === 'admin' && 
-                        document.getElementById('password').value === 'admin123') {
-                        // Set both localStorage and cookie
-                        localStorage.setItem('ufoStudioToken', 'ufo-studio-token')
-                        document.cookie = 'ufoStudioToken=ufo-studio-token; path=/; max-age=86400'
-                        window.location.href = '/ufo-studio'
-                    } else {
-                        alert('Invalid credentials')
-                    }
-                })
-            </script>
-        </body>
-        </html>
-    `)
-})
 
 // Legacy: Serve static JavaScript files (req.path is stripped to e.g. /app.js after /js prefix)
 router.use("/js", (req, res) => {
@@ -134,51 +72,11 @@ router.use("/js", (req, res) => {
     }
 })
 
-// Helper functions for split schema management
-
-// Helper to resolve Prisma schema directory path
-function getSchemaDir(): string {
-    return path.join(process.cwd(), "prisma", "schema")
-}
+// Helper functions for split schema management (getSchemaDir from lib/schemaContext)
 
 // Helper to resolve Prisma schema.prisma file path
 function getSchemaFilePath(): string {
     return path.join(getSchemaDir(), "schema.prisma")
-}
-
-// Helper to recursively get all .prisma files in a directory
-function getAllPrismaFiles(dir: string): string[] {
-    let results: string[] = []
-    const list = fs.readdirSync(dir)
-    list.forEach(function (file) {
-        const filePath = path.join(dir, file)
-        const stat = fs.statSync(filePath)
-        if (stat && stat.isDirectory()) {
-            results = results.concat(getAllPrismaFiles(filePath))
-        } else if (file.endsWith(".prisma")) {
-            results.push(filePath)
-        }
-    })
-    return results
-}
-
-// Helper to concatenate all .prisma files in a deterministic order
-function getFullSchema(): string {
-    const baseDir = getSchemaDir()
-    let files = getAllPrismaFiles(baseDir)
-    // Sort: schema.prisma first, then enums.prisma, then rest alphabetically
-    files = files.sort((a, b) => {
-        if (a.endsWith("schema.prisma")) return -1
-        if (b.endsWith("schema.prisma")) return 1
-        if (a.endsWith("enums.prisma")) return -1
-        if (b.endsWith("enums.prisma")) return 1
-        return a.localeCompare(b)
-    })
-    let content = ""
-    for (const file of files) {
-        content += fs.readFileSync(file, "utf-8") + "\n"
-    }
-    return content
 }
 
 // Helper to find which file contains a specific model
@@ -1599,79 +1497,6 @@ router.delete("/api/schema/enum/:enumName", authenticateAdmin, (req, res) => {
     }
 })
 
-// Helper function to parse schema
-function parseSchema(schema: string) {
-    const models: any[] = []
-    const enums: any[] = []
-    const lines = schema.split("\n")
-
-    let currentModel: any = null
-    let currentEnum: any = null
-    let inModel = false
-    let inEnum = false
-
-    for (const line of lines) {
-        const trimmed = line.trim()
-
-        if (trimmed.startsWith("model ")) {
-            inModel = true
-            inEnum = false
-            const modelName = trimmed.split(" ")[1]
-            currentModel = {
-                name: modelName,
-                fields: [],
-                attributes: [],
-            }
-        } else if (trimmed.startsWith("enum ")) {
-            inEnum = true
-            inModel = false
-            const enumName = trimmed.split(" ")[1]
-            currentEnum = {
-                name: enumName,
-                values: [],
-            }
-        } else if (trimmed === "}") {
-            if (inModel && currentModel) {
-                models.push(currentModel)
-                currentModel = null
-            } else if (inEnum && currentEnum) {
-                enums.push(currentEnum)
-                currentEnum = null
-            }
-            inModel = false
-            inEnum = false
-        } else if (
-            inModel &&
-            currentModel &&
-            trimmed &&
-            !trimmed.startsWith("//")
-        ) {
-            if (trimmed.startsWith("@@")) {
-                currentModel.attributes.push(trimmed)
-            } else {
-                const fieldMatch = trimmed.match(/^(\w+)\s+(.+)$/)
-                if (fieldMatch) {
-                    const [, name, type] = fieldMatch
-                    currentModel.fields.push({
-                        name,
-                        type: type.trim(),
-                        raw: trimmed,
-                    })
-                }
-            }
-        } else if (
-            inEnum &&
-            currentEnum &&
-            trimmed &&
-            !trimmed.startsWith("//")
-        ) {
-            currentEnum.values.push(trimmed)
-        }
-    }
-
-    return { models, enums }
-}
-
 // Settings API endpoints
 router.get("/api/settings", authenticateAdmin, (req, res) => {
     try {
@@ -2324,6 +2149,32 @@ router.delete("/api/v1/:modelName/:id", authenticateAdmin, async (req, res) => {
 
 // Serve static assets (for new React app: /assets/*) - must be before catch-all
 router.use(express.static(getStudioPublicDir(), { index: false }))
+
+// Public routes: serve React app for login/signup/join without auth
+router.get("/login", (req, res) => {
+    try {
+        res.sendFile(path.join(getStudioPublicDir(), "index.html"))
+    } catch (error) {
+        console.error("Error serving studio:", error)
+        res.status(500).send("Error loading studio")
+    }
+})
+router.get("/join", (req, res) => {
+    try {
+        res.sendFile(path.join(getStudioPublicDir(), "index.html"))
+    } catch (error) {
+        console.error("Error serving studio:", error)
+        res.status(500).send("Error loading studio")
+    }
+})
+router.get("/signup", (req, res) => {
+    try {
+        res.sendFile(path.join(getStudioPublicDir(), "index.html"))
+    } catch (error) {
+        console.error("Error serving studio:", error)
+        res.status(500).send("Error loading studio")
+    }
+})
 
 // Main interface: serve index.html
 router.get("/", authenticateAdmin, (req, res) => {
